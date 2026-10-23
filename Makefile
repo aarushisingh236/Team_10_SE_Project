@@ -22,7 +22,7 @@ $(TEST_TARGET): tests/test_parser.c src/parser.c
 
 test: $(TARGET) $(TEST_TARGET)
 	./$(TEST_TARGET)
-	bash tests/test_shell.sh ./$(TARGET)
+	/bin/bash tests/test_shell.sh ./$(TARGET)
 
 clean:
 	rm -f $(OBJ) $(TARGET) $(TEST_TARGET)
