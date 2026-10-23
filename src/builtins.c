@@ -1,8 +1,11 @@
+
 #include "builtins.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <errno.h>
 
 int handle_builtin(const Command *command)
 {
@@ -26,6 +29,43 @@ int handle_builtin(const Command *command)
         }
 
         putchar('\n');
+        return 1;
+    }
+
+    if (strcmp(command->argv[0], "pwd") == 0) {
+        char cwd[4096];
+
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            fprintf(stderr, "pwd: %s\n", strerror(errno));
+            return 1;
+        }
+
+        printf("%s\n", cwd);
+        return 1;
+    }
+
+    if (strcmp(command->argv[0], "cd") == 0) {
+        const char *directory;
+
+        if (command->argc == 1) {
+            directory = getenv("HOME");
+
+            if (directory == NULL || directory[0] == '\0') {
+                fprintf(stderr, "cd: HOME not set\n");
+                return 1;
+            }
+        } else if (command->argc == 2) {
+            directory = command->argv[1];
+        } else {
+            fprintf(stderr, "cd: too many arguments\n");
+            return 1;
+        }
+
+        if (chdir(directory) != 0) {
+            fprintf(stderr, "cd: %s: %s\n",
+                    directory, strerror(errno));
+        }
+
         return 1;
     }
 
