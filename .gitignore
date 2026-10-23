@@ -1,0 +1,5 @@
+*.o
+simple-shell
+tests/test_parser
+core
+core.*
