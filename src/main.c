@@ -102,7 +102,7 @@ static void execute_external(const char *path, Command *command)
     }
 
     if (pid == 0) {
-        execv(path, command->argv);
+        execvp(path, command->argv);
 
         fprintf(stderr, "simple-shell: cannot execute '%s': %s\n",
                 path, strerror(errno));
