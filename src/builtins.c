@@ -32,6 +32,18 @@ int handle_builtin(const Command *command)
         return 1;
     }
 
+    if (strcmp(command->argv[0], "pwd") == 0) {
+        char cwd[4096];
+
+        if (getcwd(cwd, sizeof(cwd)) == NULL) {
+            fprintf(stderr, "pwd: %s\n", strerror(errno));
+            return 1;
+        }
+
+        printf("%s\n", cwd);
+        return 1;
+    }
+
     if (strcmp(command->argv[0], "cd") == 0) {
         const char *directory;
 
