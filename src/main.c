@@ -18,7 +18,6 @@
 #define EXE_PATH_MAX 4096
 #define DEFAULT_PATH "/usr/bin:/bin"
 
-
 typedef enum {
     RESOLVE_OK,
     RESOLVE_NOT_FOUND,
@@ -131,7 +130,7 @@ static int parse_input_redirection(
         if (strcmp(command->argv[i], "<") == 0) {
             if (redirect_index != -1) {
                 fprintf(stderr,
-                        "Error: multiple input redirections are not supported.\n");
+                        "Error: Use only one input redirection (<) in a command.\n");
                 return -1;
             }
 
@@ -164,7 +163,7 @@ static int parse_input_redirection(
 
     if (command->argc == 0) {
         fprintf(stderr,
-                "Error: input redirection requires a command.\n");
+                "Error: Add a command before the input filename.\n");
         return -1;
     }
 
@@ -191,7 +190,7 @@ static int parse_output_redirection(
             strcmp(command->argv[i], ">>") == 0) {
             if (redirect_index != -1) {
                 fprintf(stderr,
-                        "Error: multiple output redirections are not supported.\n");
+                        "Error: Use only one output redirection (>, or >>) in a command.\n");
                 return -1;
             }
 
@@ -226,7 +225,7 @@ static int parse_output_redirection(
 
     if (command->argc == 0) {
         fprintf(stderr,
-                "Error: output redirection requires a command.\n");
+                "Error: Add a command before the output filename.\n");
         return -1;
     }
 
@@ -270,7 +269,7 @@ static int execute_builtin(
 
     if (strcmp(command->argv[0], "exit") == 0) {
         fprintf(stderr,
-                "Error: redirection for the exit built-in is not supported.\n");
+                "Error: The exit command cannot be used with input or output redirection.\n");
         return 1;
     }
 
@@ -278,7 +277,8 @@ static int execute_builtin(
         input_fd = open(input_file, O_RDONLY);
 
         if (input_fd < 0) {
-            fprintf(stderr, "Error: cannot open input file '%s': %s\n",
+            fprintf(stderr,
+                    "Error: cannot open input file '%s': %s\n",
                     input_file, strerror(errno));
             return 1;
         }
@@ -288,7 +288,8 @@ static int execute_builtin(
         output_fd = open_output_file(output_file, append_output);
 
         if (output_fd < 0) {
-            fprintf(stderr, "Error: cannot open output file '%s': %s\n",
+            fprintf(stderr,
+                    "Error: cannot open output file '%s': %s\n",
                     output_file, strerror(errno));
 
             if (input_fd >= 0) {
@@ -304,7 +305,9 @@ static int execute_builtin(
 
         if (saved_stdin < 0 ||
             dup2(input_fd, STDIN_FILENO) < 0) {
-            perror("simple-shell: redirect stdin");
+            fprintf(stderr,
+                    "Error: Could not redirect input: %s\n",
+                    strerror(errno));
 
             if (saved_stdin >= 0) {
                 close(saved_stdin);
@@ -327,7 +330,9 @@ static int execute_builtin(
 
         if (saved_stdout < 0 ||
             dup2(output_fd, STDOUT_FILENO) < 0) {
-            perror("simple-shell: redirect stdout");
+            fprintf(stderr,
+                    "Error: Could not redirect output: %s\n",
+                    strerror(errno));
 
             if (saved_stdin >= 0) {
                 (void)dup2(saved_stdin, STDIN_FILENO);
@@ -348,12 +353,16 @@ static int execute_builtin(
     builtin_result = handle_builtin(command);
 
     if (fflush(stdout) == EOF) {
-        perror("simple-shell: fflush");
+        fprintf(stderr,
+                "Error: Could not finish writing command output: %s\n",
+                strerror(errno));
     }
 
     if (saved_stdout >= 0) {
         if (dup2(saved_stdout, STDOUT_FILENO) < 0) {
-            perror("simple-shell: restore stdout");
+            fprintf(stderr,
+                    "Error: Could not restore normal output: %s\n",
+                    strerror(errno));
             close(saved_stdout);
 
             if (saved_stdin >= 0) {
@@ -368,7 +377,9 @@ static int execute_builtin(
 
     if (saved_stdin >= 0) {
         if (dup2(saved_stdin, STDIN_FILENO) < 0) {
-            perror("simple-shell: restore stdin");
+            fprintf(stderr,
+                    "Error: Could not restore normal input: %s\n",
+                    strerror(errno));
             close(saved_stdin);
             return 1;
         }
@@ -393,7 +404,8 @@ static void execute_external(
         input_fd = open(input_file, O_RDONLY);
 
         if (input_fd < 0) {
-            fprintf(stderr, "Error: cannot open input file '%s': %s\n",
+            fprintf(stderr,
+                    "Error: cannot open input file '%s': %s\n",
                     input_file, strerror(errno));
             return;
         }
@@ -403,7 +415,8 @@ static void execute_external(
         output_fd = open_output_file(output_file, append_output);
 
         if (output_fd < 0) {
-            fprintf(stderr, "Error: cannot open output file '%s': %s\n",
+            fprintf(stderr,
+                    "Error: cannot open output file '%s': %s\n",
                     output_file, strerror(errno));
 
             if (input_fd >= 0) {
@@ -417,7 +430,9 @@ static void execute_external(
     pid_t pid = fork();
 
     if (pid < 0) {
-        perror("simple-shell: fork");
+        fprintf(stderr,
+                "Error: Could not start the command: %s\n",
+                strerror(errno));
 
         if (input_fd >= 0) {
             close(input_fd);
@@ -433,13 +448,17 @@ static void execute_external(
     if (pid == 0) {
         if (input_fd >= 0 &&
             dup2(input_fd, STDIN_FILENO) < 0) {
-            perror("simple-shell: dup2 stdin");
+            fprintf(stderr,
+                    "Error: Could not set up command input: %s\n",
+                    strerror(errno));
             _exit(1);
         }
 
         if (output_fd >= 0 &&
             dup2(output_fd, STDOUT_FILENO) < 0) {
-            perror("simple-shell: dup2 stdout");
+            fprintf(stderr,
+                    "Error: Could not set up command output: %s\n",
+                    strerror(errno));
             _exit(1);
         }
 
@@ -453,9 +472,14 @@ static void execute_external(
 
         execvp(path, command->argv);
 
-        fprintf(stderr, "simple-shell: cannot execute '%s': %s\n",
-                path, strerror(errno));
-        _exit(errno == ENOENT ? 127 : 126);
+        {
+            int exec_errno = errno;
+
+            fprintf(stderr,
+                    "Error: Could not run the program '%s': %s\n",
+                    path, strerror(exec_errno));
+            _exit(exec_errno == ENOENT ? 127 : 126);
+        }
     }
 
     if (input_fd >= 0) {
@@ -474,7 +498,9 @@ static void execute_external(
     } while (result < 0 && errno == EINTR);
 
     if (result < 0) {
-        perror("simple-shell: waitpid");
+        fprintf(stderr,
+                "Error: Could not wait for the command to finish: %s\n",
+                strerror(errno));
     }
 }
 
@@ -492,19 +518,23 @@ int main(void)
         }
 
         if (result == INPUT_TOO_LONG) {
-            fputs("Error: command line is too long; input was rejected.\n",
-                  stderr);
+            fputs(
+                "Error: command line is too long. Shorten it and try again.\n",
+                stderr);
             continue;
         }
 
         if (result == INPUT_ERROR) {
-            fputs("Error: unable to read command input.\n", stderr);
+            fputs(
+                "Error: Could not read your command. Please try again.\n",
+                stderr);
             return 1;
         }
 
         if (parse_command(line, &command) != 0) {
-            fputs("Error: malformed command input (check quotes or argument count).\n",
-                  stderr);
+            fputs(
+                "Error: malformed command input. Check your quotes and number of arguments.\n",
+                stderr);
             continue;
         }
 
@@ -513,8 +543,9 @@ int main(void)
         }
 
         if (has_pipe_operator(&command)) {
-            fputs("Error: malformed command input (invalid or unsupported pipe operator).\n",
-                  stderr);
+            fputs(
+                "Error: malformed command input (unsupported pipe operator).\n",
+                stderr);
             continue;
         }
 
@@ -550,13 +581,15 @@ int main(void)
             command.argv[0], exe_path, sizeof(exe_path));
 
         if (rc == RESOLVE_NOT_FOUND) {
-            fprintf(stderr, "Error: command '%s' not found.\n",
+            fprintf(stderr,
+                    "Error: The command '%s' was not found. Check its spelling.\n",
                     command.argv[0]);
             continue;
         }
 
         if (rc != RESOLVE_OK) {
-            fprintf(stderr, "Error: unable to resolve command '%s'.\n",
+            fprintf(stderr,
+                    "Error: Could not locate the program '%s' because of an internal error.\n",
                     command.argv[0]);
             continue;
         }
