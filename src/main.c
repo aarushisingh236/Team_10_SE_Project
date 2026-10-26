@@ -1,9 +1,9 @@
-
 #define _POSIX_C_SOURCE 200809L
 
 #include "builtins.h"
 #include "command_input.h"
 #include "parser.h"
+#include <signal.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -390,12 +390,38 @@ static int execute_builtin(
     return builtin_result;
 }
 
+/* Reap completed child processes to prevent zombie accumulation. */
+static void handle_sigchld(int signal_number)
+{
+    int saved_errno = errno;
+    pid_t result;
+
+    (void)signal_number;
+
+    for (;;) {
+        result = waitpid(-1, NULL, WNOHANG);
+
+        if (result > 0) {
+            continue;
+        }
+
+        if (result < 0 && errno == EINTR) {
+            continue;
+        }
+
+        break;
+    }
+
+    errno = saved_errno;
+}
+
 static void execute_external(
     const char *path,
     Command *command,
     const char *input_file,
     const char *output_file,
-    int append_output)
+    int append_output,
+    int background)
 {
     int input_fd = -1;
     int output_fd = -1;
@@ -490,6 +516,11 @@ static void execute_external(
         close(output_fd);
     }
 
+    if (background) {
+        printf("[Background process started: PID %ld]\n", (long)pid);
+        return;
+    }
+
     int status;
     pid_t result;
 
@@ -497,7 +528,7 @@ static void execute_external(
         result = waitpid(pid, &status, 0);
     } while (result < 0 && errno == EINTR);
 
-    if (result < 0) {
+    if (result < 0 && errno != ECHILD) {
         fprintf(stderr,
                 "Error: Could not wait for the command to finish: %s\n",
                 strerror(errno));
@@ -508,6 +539,20 @@ int main(void)
 {
     char line[SHELL_MAX_LINE];
     Command command;
+
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = handle_sigchld;
+    sa.sa_flags = SA_RESTART;
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGCHLD, &sa, NULL) < 0) {
+        fprintf(stderr,
+                "Error: Could not configure child process cleanup: %s\n",
+                strerror(errno));
+        return 1;
+    }
 
     for (;;) {
         InputResult result = read_command_line(line, sizeof(line));
@@ -552,6 +597,20 @@ int main(void)
         char *input_file = NULL;
         char *output_file = NULL;
         int append_output = 0;
+        int background = 0;
+
+        /* Detect a trailing '&' to request background execution. */
+        if (command.argc > 0 &&
+            strcmp(command.argv[command.argc - 1], "&") == 0) {
+            background = 1;
+            command.argc--;
+            command.argv[command.argc] = NULL;
+
+            if (command.argc == 0) {
+                fputs("Error: Add a command before '&'.\n", stderr);
+                continue;
+            }
+        }
 
         if (parse_input_redirection(&command, &input_file) != 0) {
             continue;
@@ -595,7 +654,8 @@ int main(void)
         }
 
         execute_external(
-            exe_path, &command, input_file, output_file, append_output);
+            exe_path, &command, input_file, output_file, append_output,
+            background);
     }
 
     return 0;
