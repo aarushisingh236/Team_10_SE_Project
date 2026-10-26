@@ -168,4 +168,36 @@ if [[ "$output" != *"output redirection requires a filename"* ]]; then
     exit 1
 fi
 
+# Test 18: Missing input file reports the filename and failure reason.
+missing_input="$test_dir/missing_input.txt"
+output="$(printf 'sort < %s\nexit\n' "$missing_input" |
+    "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"$missing_input"* ||
+      "$output" != *"No such file or directory"* ]]; then
+    echo "FAIL: missing input error did not identify the file and reason" >&2
+    exit 1
+fi
+
+# Test 19: Unavailable output directory reports the filename and reason.
+missing_output="$test_dir/missing_dir/output.txt"
+output="$(printf 'echo hello > %s\nexit\n' "$missing_output" |
+    "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"$missing_output"* ||
+      "$output" != *"No such file or directory"* ]]; then
+    echo "FAIL: output-open error did not identify the file and reason" >&2
+    exit 1
+fi
+
+# Test 20: Shell remains usable after an input redirection failure.
+output="$(printf 'sort < %s\necho shell-still-works\nexit\n' \
+    "$missing_input" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"cannot open input file"* ||
+      "$output" != *"shell-still-works"* ]]; then
+    echo "FAIL: shell did not recover after an input redirection failure" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."
