@@ -36,6 +36,7 @@ fi
 # Test 5: Oversized input is rejected safely.
 long_line="$(printf '%1100s' '' | tr ' ' 'x')"
 output="$(printf '%s\nexit\n' "$long_line" | "$shell_bin" 2>&1)"
+
 if [[ "$output" != *"command line is too long"* ]]; then
     echo "FAIL: oversized input was not rejected" >&2
     exit 1
@@ -46,7 +47,7 @@ if [[ "$output" != *"shell> "* ]]; then
     exit 1
 fi
 
-# Use a temporary directory so tests do not leave files in the repository.
+# Use a temporary directory so tests leave no files in the repository.
 test_dir="$(mktemp -d)"
 trap 'rm -rf "$test_dir"' EXIT
 
@@ -82,7 +83,8 @@ if [[ "$output" != *"input redirection requires a filename"* ]]; then
 fi
 
 # Test 9: Output redirection works for the echo built-in.
-printf 'echo hello > %s\nexit\n' "$output_file" | "$shell_bin" >/dev/null
+printf 'echo hello > %s\nexit\n' "$output_file" |
+    "$shell_bin" >/dev/null
 
 if [[ ! -f "$output_file" ]] ||
    [[ "$(cat "$output_file")" != "hello" ]]; then
@@ -92,7 +94,8 @@ fi
 
 # Test 10: Output redirection truncates an existing file.
 printf 'old content\n' > "$output_file"
-printf 'echo new content > %s\nexit\n' "$output_file" | "$shell_bin" >/dev/null
+printf 'echo new content > %s\nexit\n' "$output_file" |
+    "$shell_bin" >/dev/null
 
 if [[ "$(cat "$output_file")" != "new content" ]]; then
     echo "FAIL: output redirection did not truncate the existing file" >&2
@@ -100,7 +103,8 @@ if [[ "$(cat "$output_file")" != "new content" ]]; then
 fi
 
 # Test 11: Output redirection works for an external command.
-printf 'printf external-output > %s\nexit\n' "$output_file" | "$shell_bin" >/dev/null
+printf 'printf external-output > %s\nexit\n' "$output_file" |
+    "$shell_bin" >/dev/null
 
 if [[ "$(cat "$output_file")" != "external-output" ]]; then
     echo "FAIL: output redirection for external command did not work" >&2
@@ -112,6 +116,55 @@ output="$(printf 'echo hello >\nexit\n' | "$shell_bin" 2>&1)"
 
 if [[ "$output" != *"output redirection requires a filename"* ]]; then
     echo "FAIL: missing output filename was not reported" >&2
+    exit 1
+fi
+
+# Test 13: Append redirection preserves existing file contents.
+printf 'first\n' > "$output_file"
+printf 'echo second >> %s\nexit\n' "$output_file" |
+    "$shell_bin" >/dev/null
+
+if [[ "$(cat "$output_file")" != $'first\nsecond' ]]; then
+    echo "FAIL: append redirection did not preserve existing contents" >&2
+    exit 1
+fi
+
+# Test 14: Multiple append commands append in order.
+printf 'echo third >> %s\necho fourth >> %s\nexit\n' \
+    "$output_file" "$output_file" | "$shell_bin" >/dev/null
+
+if [[ "$(cat "$output_file")" != $'first\nsecond\nthird\nfourth' ]]; then
+    echo "FAIL: multiple append commands did not preserve order" >&2
+    exit 1
+fi
+
+# Test 15: Append redirection creates a file that does not exist.
+new_file="$test_dir/new_output.txt"
+printf 'echo created >> %s\nexit\n' "$new_file" |
+    "$shell_bin" >/dev/null
+
+if [[ ! -f "$new_file" ]] ||
+   [[ "$(cat "$new_file")" != "created" ]]; then
+    echo "FAIL: append redirection did not create a new file" >&2
+    exit 1
+fi
+
+# Test 16: Append redirection works for an external command.
+# The existing file ends with a newline after "fourth".
+# printf does not add a newline after "external".
+printf 'printf external >> %s\nexit\n' "$output_file" |
+    "$shell_bin" >/dev/null
+
+if [[ "$(cat "$output_file")" != $'first\nsecond\nthird\nfourth\nexternal' ]]; then
+    echo "FAIL: append redirection for an external command did not work" >&2
+    exit 1
+fi
+
+# Test 17: Missing append filename produces a syntax error.
+output="$(printf 'echo hello >>\nexit\n' | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"output redirection requires a filename"* ]]; then
+    echo "FAIL: missing append filename was not reported" >&2
     exit 1
 fi
 

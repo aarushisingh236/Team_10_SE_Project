@@ -121,7 +121,8 @@ static int parse_input_redirection(
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
         strcmp(command->argv[redirect_index + 1], "<") == 0 ||
-        strcmp(command->argv[redirect_index + 1], ">") == 0) {
+        strcmp(command->argv[redirect_index + 1], ">") == 0 ||
+        strcmp(command->argv[redirect_index + 1], ">>") == 0) {
         fprintf(stderr,
                 "Error: input redirection requires a filename.\n");
         return -1;
@@ -145,17 +146,24 @@ static int parse_input_redirection(
     return 0;
 }
 
-/* Extract one output redirection and remove it from argv. */
+/*
+ * Extract one output redirection.
+ * '>' overwrites; '>>' appends.
+ */
 static int parse_output_redirection(
-    Command *command, char **output_file)
+    Command *command,
+    char **output_file,
+    int *append_output)
 {
     int i;
     int redirect_index = -1;
 
     *output_file = NULL;
+    *append_output = 0;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], ">") == 0) {
+        if (strcmp(command->argv[i], ">") == 0 ||
+            strcmp(command->argv[i], ">>") == 0) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: multiple output redirections are not supported.\n");
@@ -163,6 +171,8 @@ static int parse_output_redirection(
             }
 
             redirect_index = i;
+            *append_output =
+                strcmp(command->argv[i], ">>") == 0;
         }
     }
 
@@ -173,6 +183,7 @@ static int parse_output_redirection(
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
         strcmp(command->argv[redirect_index + 1], ">") == 0 ||
+        strcmp(command->argv[redirect_index + 1], ">>") == 0 ||
         strcmp(command->argv[redirect_index + 1], "<") == 0) {
         fprintf(stderr,
                 "Error: output redirection requires a filename.\n");
@@ -197,15 +208,30 @@ static int parse_output_redirection(
     return 0;
 }
 
+/* Open an output file for overwrite or append. */
+static int open_output_file(
+    const char *output_file, int append_output)
+{
+    int flags = O_WRONLY | O_CREAT;
+
+    if (append_output) {
+        flags |= O_APPEND;
+    } else {
+        flags |= O_TRUNC;
+    }
+
+    return open(output_file, flags, 0666);
+}
+
 /*
  * Execute a built-in with optional redirection.
- * Save and restore the shell's standard input/output so that
- * subsequent commands and prompts continue working normally.
+ * Restore standard input/output after the built-in finishes.
  */
 static int execute_builtin(
     Command *command,
     const char *input_file,
-    const char *output_file)
+    const char *output_file,
+    int append_output)
 {
     int saved_stdin = -1;
     int saved_stdout = -1;
@@ -217,10 +243,6 @@ static int execute_builtin(
         return handle_builtin(command);
     }
 
-    /*
-     * exit is intentionally not executed when redirection is present:
-     * preserving the shell process is safer for this implementation.
-     */
     if (strcmp(command->argv[0], "exit") == 0) {
         fprintf(stderr,
                 "Error: redirection for the exit built-in is not supported.\n");
@@ -229,6 +251,7 @@ static int execute_builtin(
 
     if (input_file != NULL) {
         input_fd = open(input_file, O_RDONLY);
+
         if (input_fd < 0) {
             fprintf(stderr, "Error: cannot open input file '%s': %s\n",
                     input_file, strerror(errno));
@@ -237,59 +260,68 @@ static int execute_builtin(
     }
 
     if (output_file != NULL) {
-        output_fd = open(output_file,
-                         O_WRONLY | O_CREAT | O_TRUNC,
-                         0666);
+        output_fd = open_output_file(output_file, append_output);
+
         if (output_fd < 0) {
             fprintf(stderr, "Error: cannot open output file '%s': %s\n",
                     output_file, strerror(errno));
+
             if (input_fd >= 0) {
                 close(input_fd);
             }
+
             return 1;
         }
     }
 
     if (input_fd >= 0) {
         saved_stdin = dup(STDIN_FILENO);
-        if (saved_stdin < 0 || dup2(input_fd, STDIN_FILENO) < 0) {
+
+        if (saved_stdin < 0 ||
+            dup2(input_fd, STDIN_FILENO) < 0) {
             perror("simple-shell: redirect stdin");
+
             if (saved_stdin >= 0) {
                 close(saved_stdin);
             }
+
             close(input_fd);
+
             if (output_fd >= 0) {
                 close(output_fd);
             }
+
             return 1;
         }
+
         close(input_fd);
     }
 
     if (output_fd >= 0) {
         saved_stdout = dup(STDOUT_FILENO);
-        if (saved_stdout < 0 || dup2(output_fd, STDOUT_FILENO) < 0) {
+
+        if (saved_stdout < 0 ||
+            dup2(output_fd, STDOUT_FILENO) < 0) {
             perror("simple-shell: redirect stdout");
 
             if (saved_stdin >= 0) {
                 (void)dup2(saved_stdin, STDIN_FILENO);
                 close(saved_stdin);
             }
+
             if (saved_stdout >= 0) {
                 close(saved_stdout);
             }
+
             close(output_fd);
             return 1;
         }
+
         close(output_fd);
     }
 
     builtin_result = handle_builtin(command);
 
-    /*
-     * Flush buffered output before restoring stdout, otherwise
-     * output from echo/pwd could appear at the terminal instead.
-     */
     if (fflush(stdout) == EOF) {
         perror("simple-shell: fflush");
     }
@@ -298,11 +330,14 @@ static int execute_builtin(
         if (dup2(saved_stdout, STDOUT_FILENO) < 0) {
             perror("simple-shell: restore stdout");
             close(saved_stdout);
+
             if (saved_stdin >= 0) {
                 close(saved_stdin);
             }
+
             return 1;
         }
+
         close(saved_stdout);
     }
 
@@ -312,6 +347,7 @@ static int execute_builtin(
             close(saved_stdin);
             return 1;
         }
+
         close(saved_stdin);
     }
 
@@ -322,13 +358,15 @@ static void execute_external(
     const char *path,
     Command *command,
     const char *input_file,
-    const char *output_file)
+    const char *output_file,
+    int append_output)
 {
     int input_fd = -1;
     int output_fd = -1;
 
     if (input_file != NULL) {
         input_fd = open(input_file, O_RDONLY);
+
         if (input_fd < 0) {
             fprintf(stderr, "Error: cannot open input file '%s': %s\n",
                     input_file, strerror(errno));
@@ -337,15 +375,16 @@ static void execute_external(
     }
 
     if (output_file != NULL) {
-        output_fd = open(output_file,
-                         O_WRONLY | O_CREAT | O_TRUNC,
-                         0666);
+        output_fd = open_output_file(output_file, append_output);
+
         if (output_fd < 0) {
             fprintf(stderr, "Error: cannot open output file '%s': %s\n",
                     output_file, strerror(errno));
+
             if (input_fd >= 0) {
                 close(input_fd);
             }
+
             return;
         }
     }
@@ -354,12 +393,15 @@ static void execute_external(
 
     if (pid < 0) {
         perror("simple-shell: fork");
+
         if (input_fd >= 0) {
             close(input_fd);
         }
+
         if (output_fd >= 0) {
             close(output_fd);
         }
+
         return;
     }
 
@@ -379,6 +421,7 @@ static void execute_external(
         if (input_fd >= 0) {
             close(input_fd);
         }
+
         if (output_fd >= 0) {
             close(output_fd);
         }
@@ -393,6 +436,7 @@ static void execute_external(
     if (input_fd >= 0) {
         close(input_fd);
     }
+
     if (output_fd >= 0) {
         close(output_fd);
     }
@@ -445,12 +489,14 @@ int main(void)
 
         char *input_file = NULL;
         char *output_file = NULL;
+        int append_output = 0;
 
         if (parse_input_redirection(&command, &input_file) != 0) {
             continue;
         }
 
-        if (parse_output_redirection(&command, &output_file) != 0) {
+        if (parse_output_redirection(
+                &command, &output_file, &append_output) != 0) {
             continue;
         }
 
@@ -458,17 +504,12 @@ int main(void)
             continue;
         }
 
-        /*
-         * Built-ins must run in the parent process so that cd and
-         * exit retain their expected shell behavior. Redirection
-         * is temporarily applied and then restored.
-         */
         if (strcmp(command.argv[0], "exit") == 0 ||
             strcmp(command.argv[0], "echo") == 0 ||
             strcmp(command.argv[0], "pwd") == 0 ||
             strcmp(command.argv[0], "cd") == 0) {
             (void)execute_builtin(
-                &command, input_file, output_file);
+                &command, input_file, output_file, append_output);
             continue;
         }
 
@@ -490,7 +531,7 @@ int main(void)
         }
 
         execute_external(
-            exe_path, &command, input_file, output_file);
+            exe_path, &command, input_file, output_file, append_output);
     }
 
     return 0;
