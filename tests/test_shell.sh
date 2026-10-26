@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -42,6 +43,37 @@ fi
 
 if [[ "$output" != *"shell> "* ]]; then
     echo "FAIL: shell did not continue after oversized input" >&2
+    exit 1
+fi
+
+# Test 6: Input redirection reads from a file.
+input_file="$(mktemp)"
+trap 'rm -f "$input_file"' EXIT
+printf 'banana\napple\ncherry\n' > "$input_file"
+
+output="$(printf 'sort < %s\nexit\n' "$input_file" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"apple"* ||
+      "$output" != *"banana"* ||
+      "$output" != *"cherry"* ]]; then
+    echo "FAIL: input redirection did not read the file" >&2
+    exit 1
+fi
+
+# Test 7: Missing input file produces an error without crashing.
+output="$(printf 'sort < /nonexistent_input_file\nexit\n' |
+    "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"cannot open input file"* ]]; then
+    echo "FAIL: missing input file was not reported" >&2
+    exit 1
+fi
+
+# Test 8: Missing input filename produces a syntax error.
+output="$(printf 'sort <\nexit\n' | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"input redirection requires a filename"* ]]; then
+    echo "FAIL: missing input filename was not reported" >&2
     exit 1
 fi
 

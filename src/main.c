@@ -6,6 +6,7 @@
 #include "parser.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,7 +93,72 @@ static ResolveResult resolve_command(
     return RESOLVE_NOT_FOUND;
 }
 
-static void execute_external(const char *path, Command *command)
+/*
+ * Extracts one input redirection from the parsed command.
+ * The '<' operator and its filename are removed from argv.
+ *
+ * Returns:
+ *   0  - success
+ *  -1  - malformed or unsupported redirection syntax
+ */
+static int parse_input_redirection(
+    Command *command, char **input_file)
+{
+    int i;
+    int redirect_index = -1;
+
+    *input_file = NULL;
+
+    for (i = 0; i < command->argc; i++) {
+        if (strcmp(command->argv[i], "<") == 0) {
+            if (redirect_index != -1) {
+                fprintf(stderr,
+                        "Error: multiple input redirections are not supported.\n");
+                return -1;
+            }
+
+            redirect_index = i;
+        }
+    }
+
+    if (redirect_index == -1) {
+        return 0;
+    }
+
+    if (redirect_index + 1 >= command->argc ||
+        command->argv[redirect_index + 1][0] == '\0' ||
+        strcmp(command->argv[redirect_index + 1], "<") == 0) {
+        fprintf(stderr,
+                "Error: input redirection requires a filename.\n");
+        return -1;
+    }
+
+    *input_file = command->argv[redirect_index + 1];
+
+    /*
+     * Remove '<' and the filename from argv, preserving the
+     * remaining arguments and the NULL terminator.
+     */
+    for (i = redirect_index; i + 2 < command->argc; i++) {
+        command->argv[i] = command->argv[i + 2];
+    }
+
+    command->argc -= 2;
+    command->argv[command->argc] = NULL;
+
+    if (command->argc == 0) {
+        fprintf(stderr,
+                "Error: input redirection requires a command.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+static void execute_external(
+    const char *path,
+    Command *command,
+    const char *input_file)
 {
     pid_t pid = fork();
 
@@ -102,6 +168,28 @@ static void execute_external(const char *path, Command *command)
     }
 
     if (pid == 0) {
+        if (input_file != NULL) {
+            int input_fd = open(input_file, O_RDONLY);
+
+            if (input_fd < 0) {
+                fprintf(stderr,
+                        "Error: cannot open input file '%s': %s\n",
+                        input_file, strerror(errno));
+                _exit(1);
+            }
+
+            if (dup2(input_fd, STDIN_FILENO) < 0) {
+                perror("simple-shell: dup2");
+                close(input_fd);
+                _exit(1);
+            }
+
+            if (close(input_fd) < 0) {
+                perror("simple-shell: close");
+                _exit(1);
+            }
+        }
+
         execvp(path, command->argv);
 
         fprintf(stderr, "simple-shell: cannot execute '%s': %s\n",
@@ -155,6 +243,26 @@ int main(void)
             continue;
         }
 
+        char *input_file = NULL;
+
+        if (parse_input_redirection(&command, &input_file) != 0) {
+            continue;
+        }
+
+        if (command.argc == 0) {
+            continue;
+        }
+
+        if (input_file != NULL &&
+            (strcmp(command.argv[0], "exit") == 0 ||
+             strcmp(command.argv[0], "echo") == 0 ||
+             strcmp(command.argv[0], "pwd") == 0 ||
+             strcmp(command.argv[0], "cd") == 0)) {
+            fprintf(stderr,
+                    "Error: input redirection for built-in commands is not supported yet.\n");
+            continue;
+        }
+
         if (handle_builtin(&command)) {
             continue;
         }
@@ -175,7 +283,7 @@ int main(void)
             continue;
         }
 
-        execute_external(exe_path, &command);
+        execute_external(exe_path, &command, input_file);
     }
 
     return 0;
