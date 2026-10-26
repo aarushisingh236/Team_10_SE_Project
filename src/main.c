@@ -18,11 +18,36 @@
 #define EXE_PATH_MAX 4096
 #define DEFAULT_PATH "/usr/bin:/bin"
 
+
 typedef enum {
     RESOLVE_OK,
     RESOLVE_NOT_FOUND,
     RESOLVE_ERROR
 } ResolveResult;
+
+/* Detect standalone pipe operators in commands. */
+static int has_pipe_operator(const Command *command)
+{
+    int i;
+
+    for (i = 0; i < command->argc; i++) {
+        const char *token = command->argv[i];
+
+        if (token[0] == '|') {
+            int j = 0;
+
+            while (token[j] == '|') {
+                j++;
+            }
+
+            if (token[j] == '\0') {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
 
 static int is_executable_file(const char *path)
 {
@@ -484,6 +509,12 @@ int main(void)
         }
 
         if (command.argc == 0) {
+            continue;
+        }
+
+        if (has_pipe_operator(&command)) {
+            fputs("Error: malformed command input (invalid or unsupported pipe operator).\n",
+                  stderr);
             continue;
         }
 

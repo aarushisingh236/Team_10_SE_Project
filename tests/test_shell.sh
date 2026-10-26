@@ -200,4 +200,39 @@ if [[ "$output" != *"cannot open input file"* ||
     exit 1
 fi
 
+# Test 21: A leading pipe operator is rejected.
+output="$(printf '| echo hello\nexit\n' | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ]]; then
+    echo "FAIL: leading pipe operator was not rejected" >&2
+    exit 1
+fi
+
+# Test 22: A trailing pipe operator is rejected.
+output="$(printf 'echo hello |\nexit\n' | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ]]; then
+    echo "FAIL: trailing pipe operator was not rejected" >&2
+    exit 1
+fi
+
+# Test 23: Repeated pipe operators are rejected.
+output="$(printf 'echo hello || echo world\nexit\n' |
+    "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ]]; then
+    echo "FAIL: repeated pipe operators were not rejected" >&2
+    exit 1
+fi
+
+# Test 24: Shell remains usable after malformed pipe input.
+output="$(printf 'echo hello |\necho shell-still-works\nexit\n' |
+    "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ||
+      "$output" != *"shell-still-works"* ]]; then
+    echo "FAIL: shell did not recover after malformed pipe input" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."
