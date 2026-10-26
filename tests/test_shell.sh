@@ -46,11 +46,15 @@ if [[ "$output" != *"shell> "* ]]; then
     exit 1
 fi
 
-# Test 6: Input redirection reads from a file.
-input_file="$(mktemp)"
-trap 'rm -f "$input_file"' EXIT
-printf 'banana\napple\ncherry\n' > "$input_file"
+# Use a temporary directory so tests do not leave files in the repository.
+test_dir="$(mktemp -d)"
+trap 'rm -rf "$test_dir"' EXIT
 
+input_file="$test_dir/input.txt"
+output_file="$test_dir/output.txt"
+
+# Test 6: Input redirection reads from a file.
+printf 'banana\napple\ncherry\n' > "$input_file"
 output="$(printf 'sort < %s\nexit\n' "$input_file" | "$shell_bin" 2>&1)"
 
 if [[ "$output" != *"apple"* ||
@@ -61,7 +65,7 @@ if [[ "$output" != *"apple"* ||
 fi
 
 # Test 7: Missing input file produces an error without crashing.
-output="$(printf 'sort < /nonexistent_input_file\nexit\n' |
+output="$(printf 'sort < %s\nexit\n' "$test_dir/missing.txt" |
     "$shell_bin" 2>&1)"
 
 if [[ "$output" != *"cannot open input file"* ]]; then
@@ -74,6 +78,40 @@ output="$(printf 'sort <\nexit\n' | "$shell_bin" 2>&1)"
 
 if [[ "$output" != *"input redirection requires a filename"* ]]; then
     echo "FAIL: missing input filename was not reported" >&2
+    exit 1
+fi
+
+# Test 9: Output redirection works for the echo built-in.
+printf 'echo hello > %s\nexit\n' "$output_file" | "$shell_bin" >/dev/null
+
+if [[ ! -f "$output_file" ]] ||
+   [[ "$(cat "$output_file")" != "hello" ]]; then
+    echo "FAIL: output redirection for echo did not work" >&2
+    exit 1
+fi
+
+# Test 10: Output redirection truncates an existing file.
+printf 'old content\n' > "$output_file"
+printf 'echo new content > %s\nexit\n' "$output_file" | "$shell_bin" >/dev/null
+
+if [[ "$(cat "$output_file")" != "new content" ]]; then
+    echo "FAIL: output redirection did not truncate the existing file" >&2
+    exit 1
+fi
+
+# Test 11: Output redirection works for an external command.
+printf 'printf external-output > %s\nexit\n' "$output_file" | "$shell_bin" >/dev/null
+
+if [[ "$(cat "$output_file")" != "external-output" ]]; then
+    echo "FAIL: output redirection for external command did not work" >&2
+    exit 1
+fi
+
+# Test 12: Missing output filename produces a syntax error.
+output="$(printf 'echo hello >\nexit\n' | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"output redirection requires a filename"* ]]; then
+    echo "FAIL: missing output filename was not reported" >&2
     exit 1
 fi
 
