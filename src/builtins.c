@@ -36,7 +36,9 @@ int handle_builtin(const Command *command)
         char cwd[4096];
 
         if (getcwd(cwd, sizeof(cwd)) == NULL) {
-            fprintf(stderr, "pwd: %s\n", strerror(errno));
+            fprintf(stderr,
+                    "Error: Could not display the current directory: %s\n",
+                    strerror(errno));
             return 1;
         }
 
@@ -51,18 +53,21 @@ int handle_builtin(const Command *command)
             directory = getenv("HOME");
 
             if (directory == NULL || directory[0] == '\0') {
-                fprintf(stderr, "cd: HOME not set\n");
+                fprintf(stderr,
+                        "Error: Cannot change directory because HOME is not set.\n");
                 return 1;
             }
         } else if (command->argc == 2) {
             directory = command->argv[1];
         } else {
-            fprintf(stderr, "cd: too many arguments\n");
+            fprintf(stderr,
+                    "Error: The cd command accepts at most one directory.\n");
             return 1;
         }
 
         if (chdir(directory) != 0) {
-            fprintf(stderr, "cd: %s: %s\n",
+            fprintf(stderr,
+                    "Error: Cannot change directory to '%s': %s\n",
                     directory, strerror(errno));
         }
 
