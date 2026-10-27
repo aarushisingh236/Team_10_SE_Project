@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -220,6 +219,44 @@ if [[ "$output" != *"$missing_output"* ||
     echo "FAIL: output-open error did not identify the file and reason" >&2
     exit 1
 fi
+
+# Test 20: Output redirection respects file write permissions.
+protected_output="$test_dir/protected_output.txt"
+printf 'original content\n' > "$protected_output"
+chmod 444 "$protected_output"
+
+if [[ ! -w "$protected_output" ]]; then
+    output="$(printf 'echo overwrite > %s\necho shell-still-works\nexit\n' \
+        "$protected_output" | "$shell_bin" 2>&1)"
+
+    if [[ "$output" != *"cannot open output file"* ]]; then
+        echo "FAIL: write-protected output file was not rejected" >&2
+        chmod 600 "$protected_output"
+        exit 1
+    fi
+
+    if [[ "$output" != *"Permission denied"* ]]; then
+        echo "FAIL: permission error was not reported" >&2
+        chmod 600 "$protected_output"
+        exit 1
+    fi
+
+    if [[ "$(cat "$protected_output")" != "original content" ]]; then
+        echo "FAIL: write-protected file contents were modified" >&2
+        chmod 600 "$protected_output"
+        exit 1
+    fi
+
+    if [[ "$output" != *"shell-still-works"* ]]; then
+        echo "FAIL: shell did not recover after a permission error" >&2
+        chmod 600 "$protected_output"
+        exit 1
+    fi
+else
+    echo "SKIP: write-permission test (filesystem does not enforce permissions)"
+fi
+
+chmod 600 "$protected_output"
 
 # Test 20: Shell remains usable after an input redirection failure.
 output="$(printf 'sort < %s\necho shell-still-works\nexit\n' \
