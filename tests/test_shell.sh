@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -220,6 +219,51 @@ if [[ "$output" != *"$missing_output"* ||
     echo "FAIL: output-open error did not identify the file and reason" >&2
     exit 1
 fi
+
+
+
+# Test 20: Input redirection respects file read permissions.
+unreadable_input="$test_dir/unreadable_input.txt"
+printf 'secret\n' > "$unreadable_input"
+chmod 000 "$unreadable_input"
+
+if [[ ! -r "$unreadable_input" ]]; then
+    output="$(printf 'cat < %s\nexit\n' "$unreadable_input" |
+        "$shell_bin" 2>&1)"
+
+    if [[ "$output" != *"cannot open input file"* ]]; then
+        echo "FAIL: unreadable input file was not rejected" >&2
+        exit 1
+    fi
+else
+    echo "SKIP: unreadable-file test (filesystem permissions unavailable)"
+fi
+
+chmod 600 "$unreadable_input"
+
+# Test 21: Output redirection respects file write permissions.
+unwritable_output="$test_dir/unwritable_output.txt"
+printf 'preserve this content\n' > "$unwritable_output"
+chmod 444 "$unwritable_output"
+
+if [[ ! -w "$unwritable_output" ]]; then
+    output="$(printf 'echo overwrite > %s\nexit\n' "$unwritable_output" |
+        "$shell_bin" 2>&1)"
+
+    if [[ "$output" != *"cannot open output file"* ]]; then
+        echo "FAIL: unwritable output file was not rejected" >&2
+        exit 1
+    fi
+
+    if [[ "$(cat "$unwritable_output")" != "preserve this content" ]]; then
+        echo "FAIL: shell modified an unwritable output file" >&2
+        exit 1
+    fi
+else
+    echo "SKIP: unwritable-file test (filesystem permissions unavailable)"
+fi
+
+chmod 600 "$unwritable_output"
 
 # Test 20: Shell remains usable after an input redirection failure.
 output="$(printf 'sort < %s\necho shell-still-works\nexit\n' \
