@@ -33,19 +33,50 @@ if [[ "$output" != *"shell> "* ]]; then
     exit 1
 fi
 
-# Test 5: Oversized input is rejected safely.
+# Test 5: Oversized input is rejected and the shell recovers.
 long_line="$(printf '%1100s' '' | tr ' ' 'x')"
-output="$(printf '%s\nexit\n' "$long_line" | "$shell_bin" 2>&1)"
+output="$(printf '%s\necho RECOVERY_OK\nexit\n' "$long_line" |
+    "$shell_bin" 2>&1)"
 
 if [[ "$output" != *"command line is too long"* ]]; then
     echo "FAIL: oversized input was not rejected" >&2
     exit 1
 fi
 
-if [[ "$output" != *"shell> "* ]]; then
-    echo "FAIL: shell did not continue after oversized input" >&2
+if [[ "$output" != *"RECOVERY_OK"* ]]; then
+    echo "FAIL: shell did not execute a valid command after oversized input" >&2
     exit 1
 fi
+
+# Test 6: A command at the maximum input length is accepted.
+boundary_line="echo $(printf '%1018s' '' | tr ' ' 'x')"
+if [[ ${#boundary_line} -ne 1023 ]]; then
+    echo "FAIL: could not construct the input boundary test" >&2
+    exit 1
+fi
+
+output="$(printf '%s\nexit\n' "$boundary_line" | "$shell_bin" 2>&1)"
+
+if [[ "$output" == *"command line is too long"* ]]; then
+    echo "FAIL: maximum-length input was incorrectly rejected" >&2
+    exit 1
+fi
+
+# Test 7: Input one character beyond the limit is rejected.
+over_limit="$(printf '%1024s' '' | tr ' ' 'x')"
+output="$(printf '%s\necho BOUNDARY_RECOVERY_OK\nexit\n' \
+    "$over_limit" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"command line is too long"* ]]; then
+    echo "FAIL: input beyond the limit was not rejected" >&2
+    exit 1
+fi
+
+if [[ "$output" != *"BOUNDARY_RECOVERY_OK"* ]]; then
+    echo "FAIL: shell did not recover after boundary rejection" >&2
+    exit 1
+fi
+
 
 # Use a temporary directory so tests leave no files in the repository.
 test_dir="$(mktemp -d)"
