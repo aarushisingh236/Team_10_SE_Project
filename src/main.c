@@ -255,7 +255,9 @@ static int execute_builtin(
     Command *command,
     const char *input_file,
     const char *output_file,
-    int append_output)
+    int append_output,
+    const char *history[],
+    int history_count)
 {
     int saved_stdin = -1;
     int saved_stdout = -1;
@@ -264,7 +266,7 @@ static int execute_builtin(
     int builtin_result;
 
     if (input_file == NULL && output_file == NULL) {
-        return handle_builtin(command);
+	return handle_builtin(command, history, history_count);
     }
 
     if (strcmp(command->argv[0], "exit") == 0) {
@@ -350,7 +352,7 @@ static int execute_builtin(
         close(output_fd);
     }
 
-    builtin_result = handle_builtin(command);
+    builtin_result = handle_builtin(command, history, history_count);
 
     if (fflush(stdout) == EOF) {
         fprintf(stderr,
@@ -538,7 +540,11 @@ static void execute_external(
 int main(void)
 {
     char line[SHELL_MAX_LINE];
+    char original_line[SHELL_MAX_LINE];
     Command command;
+    char history[1000][SHELL_MAX_LINE];
+    const char *history_ptrs[1000];
+    int history_count = 0;
 
     struct sigaction sa;
 
@@ -561,6 +567,9 @@ int main(void)
             putchar('\n');
             break;
         }
+
+        strncpy(original_line, line, SHELL_MAX_LINE - 1);
+        original_line[SHELL_MAX_LINE - 1] = '\0';
 
         if (result == INPUT_TOO_LONG) {
             fputs(
@@ -585,6 +594,13 @@ int main(void)
 
         if (command.argc == 0) {
             continue;
+        }
+        if (strcmp(command.argv[0], "history") != 0 &&
+            history_count < 1000) {
+            strncpy(history[history_count], original_line, SHELL_MAX_LINE - 1);
+            history[history_count][SHELL_MAX_LINE - 1] = '\0';
+            history_ptrs[history_count] = history[history_count];
+            history_count++;
         }
 
         if (has_pipe_operator(&command)) {
@@ -625,12 +641,13 @@ int main(void)
             continue;
         }
 
-        if (strcmp(command.argv[0], "exit") == 0 ||
+	if (strcmp(command.argv[0], "exit") == 0 ||
             strcmp(command.argv[0], "echo") == 0 ||
             strcmp(command.argv[0], "pwd") == 0 ||
-            strcmp(command.argv[0], "cd") == 0) {
+            strcmp(command.argv[0], "history") == 0 ||
+    	    strcmp(command.argv[0], "cd") == 0) {
             (void)execute_builtin(
-                &command, input_file, output_file, append_output);
+            	&command, input_file, output_file, append_output,history_ptrs, history_count);
             continue;
         }
 
