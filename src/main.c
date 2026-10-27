@@ -641,15 +641,17 @@ int main(void)
             continue;
         }
 
-	if (strcmp(command.argv[0], "exit") == 0 ||
-            strcmp(command.argv[0], "echo") == 0 ||
-            strcmp(command.argv[0], "pwd") == 0 ||
-            strcmp(command.argv[0], "history") == 0 ||
-    	    strcmp(command.argv[0], "cd") == 0) {
-            (void)execute_builtin(
-            	&command, input_file, output_file, append_output,history_ptrs, history_count);
-            continue;
-        }
+ if (strcmp(command.argv[0], "exit") == 0 ||
+    strcmp(command.argv[0], "echo") == 0 ||
+    strcmp(command.argv[0], "pwd") == 0 ||
+    strcmp(command.argv[0], "help") == 0 ||
+    strcmp(command.argv[0], "history") == 0 ||
+    strcmp(command.argv[0], "cd") == 0) {
+    (void)execute_builtin(
+        &command, input_file, output_file, append_output,
+        history_ptrs, history_count);
+    continue;
+}
 
         char exe_path[EXE_PATH_MAX];
 
