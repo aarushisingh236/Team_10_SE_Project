@@ -17,6 +17,14 @@ if [[ "$output" != *"hello world"* ]]; then
     exit 1
 fi
 
+# Test 2a: Echo prints multiple arguments separated by single spaces.
+output="$(printf 'echo hello world\nexit\n' | "$shell_bin" 2>&1)"
+if [[ "$output" != *"hello world"* ]]; then
+    echo "FAIL: echo did not print multiple arguments correctly" >&2
+    exit 1
+fi
+
+
 # Test 3: Blank input is handled safely.
 output="$(printf '\nexit\n' | "$shell_bin" 2>&1)"
 
