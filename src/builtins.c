@@ -7,7 +7,9 @@
 #include <unistd.h>
 #include <errno.h>
 
-int handle_builtin(const Command *command)
+int handle_builtin(const Command *command,
+                  const char *history[],
+                  int history_count)
 {
     int i;
 
@@ -18,6 +20,15 @@ int handle_builtin(const Command *command)
 
     if (strcmp(command->argv[0], "exit") == 0) {
         exit(0);
+    }
+    if (strcmp(command->argv[0], "history") == 0) {
+        int i;
+
+        for (i = 0; i < history_count; i++) {
+            printf("%d  %s\n", i + 1, history[i]);
+        }
+
+        return 1;
     }
 
     if (strcmp(command->argv[0], "echo") == 0) {
