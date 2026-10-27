@@ -31,6 +31,15 @@ int handle_builtin(const Command *command)
         putchar('\n');
         return 1;
     }
+    if (strcmp(command->argv[0], "help") == 0) {
+        printf("cd      - Change the current directory.\n");
+    	printf("pwd     - Display the current directory.\n");
+    	printf("echo    - Print text to the terminal.\n");
+    	printf("help    - List built-in commands.\n");
+    	printf("exit    - Exit the shell.\n");
+    	printf("history - Display command history.\n");
+    	return 1;
+	}
 
     if (strcmp(command->argv[0], "pwd") == 0) {
         char cwd[4096];
