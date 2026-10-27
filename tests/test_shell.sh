@@ -303,4 +303,39 @@ if [[ "$output" != *"malformed command input"* ||
     exit 1
 fi
 
+# Test 25: Malformed pipe syntax does not create an output file.
+malformed_output="$test_dir/malformed_output.txt"
+rm -f "$malformed_output"
+
+output="$(printf 'echo hello | > %s\nexit\n' \
+    "$malformed_output" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ||
+      -e "$malformed_output" ]]; then
+    echo "FAIL: malformed pipe syntax created an output file" >&2
+    exit 1
+fi
+
+# Test 26: Malformed pipe syntax does not truncate an existing file.
+printf 'preserve this content\n' > "$malformed_output"
+
+output="$(printf 'echo hello | > %s\nexit\n' \
+    "$malformed_output" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ||
+      "$(cat "$malformed_output")" != "preserve this content" ]]; then
+    echo "FAIL: malformed pipe syntax modified an output file" >&2
+    exit 1
+fi
+
+# Test 27: Shell remains usable after malformed redirection and pipe syntax.
+output="$(printf 'echo hello | > %s\necho shell-still-works\nexit\n' \
+    "$malformed_output" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"malformed command input"* ||
+      "$output" != *"shell-still-works"* ]]; then
+    echo "FAIL: shell did not recover after malformed pipe/redirection syntax" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."
