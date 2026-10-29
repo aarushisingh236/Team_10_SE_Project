@@ -568,6 +568,13 @@ int main(void)
             break;
         }
 
+        if (result == INPUT_INVALID) {
+            fputs(
+                "Error: input contains unsupported control characters.\n",
+                stderr);
+            continue;
+        }
+
         strncpy(original_line, line, SHELL_MAX_LINE - 1);
         original_line[SHELL_MAX_LINE - 1] = '\0';
 
