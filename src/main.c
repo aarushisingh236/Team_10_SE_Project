@@ -14,9 +14,71 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #define EXE_PATH_MAX 4096
 #define DEFAULT_PATH "/usr/bin:/bin"
+
+
+#define MAX_EXPANDED_ARG 4096
+
+static int expand_environment_variables(Command *command)
+{
+    static char expanded[SHELL_MAX_ARGS][MAX_EXPANDED_ARG];
+    int i;
+
+    for (i = 0; i < command->argc; i++) {
+        const char *src = command->argv[i];
+        size_t used = 0;
+
+        while (*src != '\0') {
+            if (*src == '$' &&
+                (isalpha((unsigned char)src[1]) || src[1] == '_')) {
+                char name[ MAX_EXPANDED_ARG ];
+                size_t name_len = 0;
+                const char *value;
+                size_t value_len;
+
+                src++;
+
+                while (isalnum((unsigned char)*src) || *src == '_') {
+                    if (name_len >= sizeof(name) - 1) {
+                        return -1;
+                    }
+                    name[name_len++] = *src++;
+                }
+
+                name[name_len] = '\0';
+                value = getenv(name);
+
+                if (value == NULL) {
+                    value = "";
+                }
+
+                value_len = strlen(value);
+
+                if (value_len >= MAX_EXPANDED_ARG - used) {
+                    return -1;
+                }
+
+                memcpy(expanded[i] + used, value, value_len);
+                used += value_len;
+            } else {
+                if (used >= MAX_EXPANDED_ARG - 1) {
+                    return -1;
+                }
+
+                expanded[i][used++] = *src++;
+            }
+        }
+
+        expanded[i][used] = '\0';
+        command->argv[i] = expanded[i];
+    }
+
+    return 0;
+}
+
 
 typedef enum {
     RESOLVE_OK,
@@ -758,6 +820,10 @@ int main(void)
         if (command.argc == 0) {
             continue;
         }
+        if (expand_environment_variables(&command) != 0) {
+            fputs("Error: environment variable expansion failed.\n", stderr);
+            continue;
+        }
         if (strcmp(command.argv[0], "history") != 0 &&
             history_count < 1000) {
             strncpy(history[history_count], original_line, SHELL_MAX_LINE - 1);
@@ -801,7 +867,6 @@ int main(void)
         if (command.argc == 0) {
             continue;
         }
-
  if (strcmp(command.argv[0], "exit") == 0 ||
     strcmp(command.argv[0], "echo") == 0 ||
     strcmp(command.argv[0], "pwd") == 0 ||
