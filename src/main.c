@@ -18,6 +18,10 @@
 #define EXE_PATH_MAX 4096
 #define DEFAULT_PATH "/usr/bin:/bin"
 
+#ifndef SHELL_HISTORY_CAPACITY
+#define SHELL_HISTORY_CAPACITY 50
+#endif
+
 typedef enum {
     RESOLVE_OK,
     RESOLVE_NOT_FOUND,
@@ -542,8 +546,8 @@ int main(void)
     char line[SHELL_MAX_LINE];
     char original_line[SHELL_MAX_LINE];
     Command command;
-    char history[1000][SHELL_MAX_LINE];
-    const char *history_ptrs[1000];
+    char history[SHELL_HISTORY_CAPACITY][SHELL_MAX_LINE];
+    const char *history_ptrs[SHELL_HISTORY_CAPACITY];
     int history_count = 0;
 
     struct sigaction sa;
@@ -595,12 +599,23 @@ int main(void)
         if (command.argc == 0) {
             continue;
         }
-        if (strcmp(command.argv[0], "history") != 0 &&
-            history_count < 1000) {
-            strncpy(history[history_count], original_line, SHELL_MAX_LINE - 1);
-            history[history_count][SHELL_MAX_LINE - 1] = '\0';
-            history_ptrs[history_count] = history[history_count];
-            history_count++;
+        if (strcmp(command.argv[0], "history") != 0) {
+            if (history_count < SHELL_HISTORY_CAPACITY) {
+                strncpy(history[history_count], original_line, SHELL_MAX_LINE - 1);
+                history[history_count][SHELL_MAX_LINE - 1] = '\0';
+                history_ptrs[history_count] = history[history_count];
+                history_count++;
+            } else {
+                int i;
+                for (i = 0; i < SHELL_HISTORY_CAPACITY - 1; i++) {
+                    strncpy(history[i], history[i + 1], SHELL_MAX_LINE - 1);
+                    history[i][SHELL_MAX_LINE - 1] = '\0';
+                    history_ptrs[i] = history[i];
+                }
+                strncpy(history[SHELL_HISTORY_CAPACITY - 1], original_line, SHELL_MAX_LINE - 1);
+                history[SHELL_HISTORY_CAPACITY - 1][SHELL_MAX_LINE - 1] = '\0';
+                history_ptrs[SHELL_HISTORY_CAPACITY - 1] = history[SHELL_HISTORY_CAPACITY - 1];
+            }
         }
 
         if (has_pipe_operator(&command)) {
