@@ -34,7 +34,10 @@ int parse_command(char *line, Command *command)
             return -1;
         }
 
-        command->argv[command->argc++] = write_ptr;
+        int arg_index = command->argc;
+        command->argv[arg_index] = write_ptr;
+        command->quoted[arg_index] = 0;
+        command->argc++;
 
         while (*read_ptr != '\0') {
             char current = *read_ptr++;
@@ -45,9 +48,10 @@ int parse_command(char *line, Command *command)
                 } else {
                     *write_ptr++ = current;
                 }
-            } else if (current == '\'' || current == '"') {
-                quote = current;
-            } else if (isspace((unsigned char)current)) {
+            }  else if (current == '\'' || current == '"') {
+                    quote = current;
+                    command->quoted[arg_index] = 1;
+             } else if (isspace((unsigned char)current)) {
                 break;
             } else {
                 *write_ptr++ = current;
