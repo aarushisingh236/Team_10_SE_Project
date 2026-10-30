@@ -7,6 +7,20 @@
 #include <unistd.h>
 #include <errno.h>
 
+int is_builtin(const char *name)
+{
+    if (name == NULL) {
+        return 0;
+    }
+
+    return (strcmp(name, "exit") == 0 ||
+            strcmp(name, "echo") == 0 ||
+            strcmp(name, "pwd") == 0 ||
+            strcmp(name, "help") == 0 ||
+            strcmp(name, "history") == 0 ||
+            strcmp(name, "cd") == 0);
+}
+
 int handle_builtin(const Command *command,
                   const char *history[],
                   int history_count)
