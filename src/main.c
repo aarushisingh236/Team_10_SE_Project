@@ -537,63 +537,79 @@ static void execute_external(
     }
 }
 
+
+
 static void execute_pipeline(Command *command)
 {
-    Command left = {0};
-    Command right = {0};
-    int pipefd[2];
-    int pipe_index = -1;
-    int i;
-    int count = 0;
-    char left_path[EXE_PATH_MAX];
-    char right_path[EXE_PATH_MAX];
+    Command commands[SHELL_MAX_ARGS] = {0};
+    char paths[SHELL_MAX_ARGS][EXE_PATH_MAX];
+    int pipes[SHELL_MAX_ARGS - 1][2];
+    pid_t pids[SHELL_MAX_ARGS];
+    int command_count = 0;
+    int i, j;
+    int started = 0;
     sigset_t block_set, old_set;
-    pid_t left_pid, right_pid;
-    int status;
 
-    /* Find exactly one standalone pipe operator. */
+    /* Split input into individual commands. */
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], "|") == 0) {
-            pipe_index = i;
-            count++;
+        if (command->argv[i][0] == '|') {
+            if (strcmp(command->argv[i], "|") != 0) {
+                fputs("Error: malformed command input (invalid pipe syntax).\n",
+                    stderr);
+                return;
+            }
+            if (commands[command_count].argc == 0 ||
+                command_count >= SHELL_MAX_ARGS - 1) {
+                fputs("Error: malformed command input (invalid pipe syntax).\n",
+                    stderr);
+                return;
+}
+
+            commands[command_count].argv[
+                commands[command_count].argc] = NULL;
+            command_count++;
+        } else {
+            if (commands[command_count].argc >= SHELL_MAX_ARGS) {
+                fputs("Error: too many arguments in pipeline.\n", stderr);
+                return;
+            }
+
+            commands[command_count].argv[
+                commands[command_count].argc++] = command->argv[i];
         }
     }
 
-    if (count != 1 || pipe_index == 0 ||
-        pipe_index == command->argc - 1) {
-        fputs("Error: malformed command input (invalid pipe syntax).\n", stderr);
+    if (commands[command_count].argc == 0) {
+        fputs("Error: malformed command input (invalid pipe syntax).\n",
+              stderr);
         return;
     }
 
-    for (i = 0; i < pipe_index; i++) {
-        left.argv[left.argc++] = command->argv[i];
-    }
-    left.argv[left.argc] = NULL;
+    commands[command_count].argv[
+        commands[command_count].argc] = NULL;
+    command_count++;
 
-    for (i = pipe_index + 1; i < command->argc; i++) {
-        right.argv[right.argc++] = command->argv[i];
-    }
-    right.argv[right.argc] = NULL;
+    /* Resolve and validate every command. */
+    for (i = 0; i < command_count; i++) {
+        for (j = 0; j < commands[i].argc; j++) {
+            if (strcmp(commands[i].argv[j], "<") == 0 ||
+                strcmp(commands[i].argv[j], ">") == 0 ||
+                strcmp(commands[i].argv[j], ">>") == 0) {
+                fputs("Error: malformed command input (invalid pipe syntax).\n",
+                      stderr);
+                return;
+            }
+        }
 
-    if (strcmp(right.argv[0], ">") == 0 ||
-    strcmp(right.argv[0], "<") == 0 ||
-    strcmp(left.argv[left.argc - 1], ">") == 0 ||
-    strcmp(left.argv[left.argc - 1], "<") == 0) {
-    fputs("Error: malformed command input (invalid pipe syntax).\n",
-          stderr);
-    return;
-}
-
-    if (resolve_command(left.argv[0], left_path,
-                        sizeof(left_path)) != RESOLVE_OK ||
-        resolve_command(right.argv[0], right_path,
-                        sizeof(right_path)) != RESOLVE_OK) {
-        fprintf(stderr, "Error: command not found in pipeline.\n");
-        return;
+        if (resolve_command(commands[i].argv[0], paths[i],
+                            sizeof(paths[i])) != RESOLVE_OK) {
+            fprintf(stderr, "Error: command not found in pipeline: %s\n",
+                    commands[i].argv[0]);
+            return;
+        }
     }
 
-    /* Prevent the SIGCHLD handler from reaping pipeline children
-       before the parent waits for them. */
+    /* Block SIGCHLD while managing pipeline children. */
     sigemptyset(&block_set);
     sigaddset(&block_set, SIGCHLD);
 
@@ -602,60 +618,83 @@ static void execute_pipeline(Command *command)
         return;
     }
 
-    if (pipe(pipefd) < 0) {
-        perror("pipe");
-        sigprocmask(SIG_SETMASK, &old_set, NULL);
-        return;
-    }
+    /* Create pipes. */
+    for (i = 0; i < command_count - 1; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
 
-    left_pid = fork();
+            for (j = 0; j < i; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
 
-    if (left_pid == 0) {
-        sigprocmask(SIG_SETMASK, &old_set, NULL);
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[0]);
-        close(pipefd[1]);
-        execvp(left_path, left.argv);
-        perror("execvp");
-        _exit(127);
-    }
-
-    if (left_pid < 0) {
-        perror("fork");
-        close(pipefd[0]);
-        close(pipefd[1]);
-        sigprocmask(SIG_SETMASK, &old_set, NULL);
-        return;
-    }
-
-    right_pid = fork();
-
-    if (right_pid == 0) {
-        sigprocmask(SIG_SETMASK, &old_set, NULL);
-        dup2(pipefd[0], STDIN_FILENO);
-        close(pipefd[0]);
-        close(pipefd[1]);
-        execvp(right_path, right.argv);
-        perror("execvp");
-        _exit(127);
-    }
-
-    close(pipefd[0]);
-    close(pipefd[1]);
-
-    if (right_pid < 0) {
-        perror("fork");
-        while (waitpid(left_pid, &status, 0) < 0 &&
-               errno == EINTR) {
+            sigprocmask(SIG_SETMASK, &old_set, NULL);
+            return;
         }
-        sigprocmask(SIG_SETMASK, &old_set, NULL);
-        return;
     }
 
-    while (waitpid(left_pid, &status, 0) < 0 && errno == EINTR) {
+    /* Fork each command in the pipeline. */
+    for (i = 0; i < command_count; i++) {
+        pids[i] = fork();
+
+        if (pids[i] < 0) {
+            perror("fork");
+            break;
+        }
+
+        if (pids[i] == 0) {
+            sigprocmask(SIG_SETMASK, &old_set, NULL);
+
+            if (i > 0 &&
+                dup2(pipes[i - 1][0], STDIN_FILENO) < 0) {
+                perror("dup2 stdin");
+                _exit(1);
+            }
+
+            if (i < command_count - 1 &&
+                dup2(pipes[i][1], STDOUT_FILENO) < 0) {
+                perror("dup2 stdout");
+                _exit(1);
+            }
+
+            for (j = 0; j < command_count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            execvp(paths[i], commands[i].argv);
+            perror("execvp");
+            _exit(127);
+        }
+
+        started++;
     }
 
-    while (waitpid(right_pid, &status, 0) < 0 && errno == EINTR) {
+    /* Close parent copies of all pipe descriptors. */
+    for (i = 0; i < command_count - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    /* Stop already-started children if a fork failed. */
+    if (started < command_count) {
+        for (i = 0; i < started; i++) {
+            kill(pids[i], SIGTERM);
+        }
+    }
+
+    /* Wait for all pipeline processes. */
+    for (i = 0; i < started; i++) {
+        int status;
+        pid_t result;
+
+        do {
+            result = waitpid(pids[i], &status, 0);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0 && errno != ECHILD) {
+            perror("waitpid");
+        }
     }
 
     sigprocmask(SIG_SETMASK, &old_set, NULL);
