@@ -94,7 +94,7 @@ static int has_pipe_operator(const Command *command)
     for (i = 0; i < command->argc; i++) {
         const char *token = command->argv[i];
 
-        if (token[0] == '|') {
+        if (!command->quoted[i] && token[0] == '|') {
             int j = 0;
 
             while (token[j] == '|') {
@@ -189,7 +189,8 @@ static int parse_input_redirection(
     *input_file = NULL;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], "<") == 0) {
+        if (!command->quoted[i] &&
+            strcmp(command->argv[i], "<") == 0) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: Use only one input redirection (<) in a command.\n");
@@ -206,10 +207,11 @@ static int parse_input_redirection(
 
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
-        strcmp(command->argv[redirect_index + 1], "<") == 0 ||
+        (!command->quoted[redirect_index + 1] &&
+        (strcmp(command->argv[redirect_index + 1], "<") == 0 ||
         strcmp(command->argv[redirect_index + 1], ">") == 0 ||
-        strcmp(command->argv[redirect_index + 1], ">>") == 0) {
-        fprintf(stderr,
+        strcmp(command->argv[redirect_index + 1], ">>") == 0))) {
+                fprintf(stderr,
                 "Error: input redirection requires a filename.\n");
         return -1;
     }
@@ -217,8 +219,9 @@ static int parse_input_redirection(
     *input_file = command->argv[redirect_index + 1];
 
     for (i = redirect_index; i + 2 < command->argc; i++) {
-        command->argv[i] = command->argv[i + 2];
-    }
+    command->argv[i] = command->argv[i + 2];
+    command->quoted[i] = command->quoted[i + 2];
+}
 
     command->argc -= 2;
     command->argv[command->argc] = NULL;
@@ -248,8 +251,9 @@ static int parse_output_redirection(
     *append_output = 0;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], ">") == 0 ||
-            strcmp(command->argv[i], ">>") == 0) {
+        if (!command->quoted[i] &&
+        (strcmp(command->argv[i], ">") == 0 ||
+        strcmp(command->argv[i], ">>") == 0)) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: Use only one output redirection (>, or >>) in a command.\n");
@@ -268,9 +272,10 @@ static int parse_output_redirection(
 
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
-        strcmp(command->argv[redirect_index + 1], ">") == 0 ||
+        (!command->quoted[redirect_index + 1] &&
+        (strcmp(command->argv[redirect_index + 1], ">") == 0 ||
         strcmp(command->argv[redirect_index + 1], ">>") == 0 ||
-        strcmp(command->argv[redirect_index + 1], "<") == 0) {
+        strcmp(command->argv[redirect_index + 1], "<") == 0))) {
         fprintf(stderr,
                 "Error: output redirection requires a filename.\n");
         return -1;
@@ -280,6 +285,7 @@ static int parse_output_redirection(
 
     for (i = redirect_index; i + 2 < command->argc; i++) {
         command->argv[i] = command->argv[i + 2];
+        command->quoted[i] = command->quoted[i + 2];
     }
 
     command->argc -= 2;
@@ -614,7 +620,7 @@ static void execute_pipeline(Command *command)
 
     /* Split input into individual commands. */
     for (i = 0; i < command->argc; i++) {
-        if (command->argv[i][0] == '|') {
+        if (!command->quoted[i] && command->argv[i][0] == '|') {
             if (strcmp(command->argv[i], "|") != 0) {
                 fputs("Error: malformed command input (invalid pipe syntax).\n",
                     stderr);
@@ -636,8 +642,11 @@ static void execute_pipeline(Command *command)
                 return;
             }
 
-            commands[command_count].argv[
-                commands[command_count].argc++] = command->argv[i];
+            int arg_index = commands[command_count].argc;
+
+            commands[command_count].argv[arg_index] = command->argv[i];
+            commands[command_count].quoted[arg_index] = command->quoted[i];
+            commands[command_count].argc++;
         }
     }
 
@@ -654,9 +663,10 @@ static void execute_pipeline(Command *command)
     /* Resolve and validate every command. */
     for (i = 0; i < command_count; i++) {
         for (j = 0; j < commands[i].argc; j++) {
-            if (strcmp(commands[i].argv[j], "<") == 0 ||
+            if (!commands[i].quoted[j] &&
+                (strcmp(commands[i].argv[j], "<") == 0 ||
                 strcmp(commands[i].argv[j], ">") == 0 ||
-                strcmp(commands[i].argv[j], ">>") == 0) {
+                strcmp(commands[i].argv[j], ">>") == 0)) {
                 fputs("Error: malformed command input (invalid pipe syntax).\n",
                       stderr);
                 return;
@@ -844,6 +854,7 @@ int main(void)
 
         /* Detect a trailing '&' to request background execution. */
         if (command.argc > 0 &&
+            !command.quoted[command.argc - 1] &&
             strcmp(command.argv[command.argc - 1], "&") == 0) {
             background = 1;
             command.argc--;
