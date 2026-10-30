@@ -478,7 +478,10 @@ static void handle_sigchld(int signal_number)
 
     errno = saved_errno;
 }
-
+static void handle_sigint(int signal_number)
+{
+    (void)signal_number;
+}
 static void execute_external(
     const char *path,
     Command *command,
@@ -536,6 +539,14 @@ static void execute_external(
     }
 
     if (pid == 0) {
+        struct sigaction default_sa;
+        memset(&default_sa, 0, sizeof(default_sa));
+        default_sa.sa_handler = SIG_DFL;
+        sigemptyset(&default_sa.sa_mask);
+
+        if (sigaction(SIGINT, &default_sa, NULL) < 0) {
+            _exit(1);
+        }
         if (input_fd >= 0 &&
             dup2(input_fd, STDIN_FILENO) < 0) {
             fprintf(stderr,
@@ -706,6 +717,14 @@ static void execute_pipeline(Command *command)
 
         if (pids[i] == 0) {
             sigprocmask(SIG_SETMASK, &old_set, NULL);
+            struct sigaction default_sa;
+            memset(&default_sa, 0, sizeof(default_sa));
+            default_sa.sa_handler = SIG_DFL;
+            sigemptyset(&default_sa.sa_mask);
+
+            if (sigaction(SIGINT, &default_sa, NULL) < 0) {
+                _exit(1);
+            }
 
             if (i > 0 &&
                 dup2(pipes[i - 1][0], STDIN_FILENO) < 0) {
@@ -772,6 +791,7 @@ int main(void)
     int history_count = 0;
 
     struct sigaction sa;
+    struct sigaction sigint_sa;
 
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_sigchld;
@@ -784,10 +804,24 @@ int main(void)
                 strerror(errno));
         return 1;
     }
+    memset(&sigint_sa, 0, sizeof(sigint_sa));
+    sigint_sa.sa_handler = handle_sigint;
+    sigemptyset(&sigint_sa.sa_mask);
+
+    if (sigaction(SIGINT, &sigint_sa, NULL) < 0) {
+        fprintf(stderr,
+                "Error: Could not configure SIGINT handling: %s\n",
+                strerror(errno));
+        return 1;
+    }
 
     for (;;) {
         InputResult result = read_command_line(line, sizeof(line));
-
+        if (result == INPUT_INTERRUPTED) {
+             putchar('\n');
+             fflush(stdout);
+            continue;
+        }
         if (result == INPUT_EOF) {
             putchar('\n');
             break;
