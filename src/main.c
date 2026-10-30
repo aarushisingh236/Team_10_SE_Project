@@ -537,6 +537,130 @@ static void execute_external(
     }
 }
 
+static void execute_pipeline(Command *command)
+{
+    Command left = {0};
+    Command right = {0};
+    int pipefd[2];
+    int pipe_index = -1;
+    int i;
+    int count = 0;
+    char left_path[EXE_PATH_MAX];
+    char right_path[EXE_PATH_MAX];
+    sigset_t block_set, old_set;
+    pid_t left_pid, right_pid;
+    int status;
+
+    /* Find exactly one standalone pipe operator. */
+    for (i = 0; i < command->argc; i++) {
+        if (strcmp(command->argv[i], "|") == 0) {
+            pipe_index = i;
+            count++;
+        }
+    }
+
+    if (count != 1 || pipe_index == 0 ||
+        pipe_index == command->argc - 1) {
+        fputs("Error: malformed command input (invalid pipe syntax).\n", stderr);
+        return;
+    }
+
+    for (i = 0; i < pipe_index; i++) {
+        left.argv[left.argc++] = command->argv[i];
+    }
+    left.argv[left.argc] = NULL;
+
+    for (i = pipe_index + 1; i < command->argc; i++) {
+        right.argv[right.argc++] = command->argv[i];
+    }
+    right.argv[right.argc] = NULL;
+
+    if (strcmp(right.argv[0], ">") == 0 ||
+    strcmp(right.argv[0], "<") == 0 ||
+    strcmp(left.argv[left.argc - 1], ">") == 0 ||
+    strcmp(left.argv[left.argc - 1], "<") == 0) {
+    fputs("Error: malformed command input (invalid pipe syntax).\n",
+          stderr);
+    return;
+}
+
+    if (resolve_command(left.argv[0], left_path,
+                        sizeof(left_path)) != RESOLVE_OK ||
+        resolve_command(right.argv[0], right_path,
+                        sizeof(right_path)) != RESOLVE_OK) {
+        fprintf(stderr, "Error: command not found in pipeline.\n");
+        return;
+    }
+
+    /* Prevent the SIGCHLD handler from reaping pipeline children
+       before the parent waits for them. */
+    sigemptyset(&block_set);
+    sigaddset(&block_set, SIGCHLD);
+
+    if (sigprocmask(SIG_BLOCK, &block_set, &old_set) < 0) {
+        perror("sigprocmask");
+        return;
+    }
+
+    if (pipe(pipefd) < 0) {
+        perror("pipe");
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+        return;
+    }
+
+    left_pid = fork();
+
+    if (left_pid == 0) {
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[0]);
+        close(pipefd[1]);
+        execvp(left_path, left.argv);
+        perror("execvp");
+        _exit(127);
+    }
+
+    if (left_pid < 0) {
+        perror("fork");
+        close(pipefd[0]);
+        close(pipefd[1]);
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+        return;
+    }
+
+    right_pid = fork();
+
+    if (right_pid == 0) {
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        close(pipefd[1]);
+        execvp(right_path, right.argv);
+        perror("execvp");
+        _exit(127);
+    }
+
+    close(pipefd[0]);
+    close(pipefd[1]);
+
+    if (right_pid < 0) {
+        perror("fork");
+        while (waitpid(left_pid, &status, 0) < 0 &&
+               errno == EINTR) {
+        }
+        sigprocmask(SIG_SETMASK, &old_set, NULL);
+        return;
+    }
+
+    while (waitpid(left_pid, &status, 0) < 0 && errno == EINTR) {
+    }
+
+    while (waitpid(right_pid, &status, 0) < 0 && errno == EINTR) {
+    }
+
+    sigprocmask(SIG_SETMASK, &old_set, NULL);
+}
+
 int main(void)
 {
     char line[SHELL_MAX_LINE];
@@ -604,9 +728,7 @@ int main(void)
         }
 
         if (has_pipe_operator(&command)) {
-            fputs(
-                "Error: malformed command input (unsupported pipe operator).\n",
-                stderr);
+            execute_pipeline(&command);
             continue;
         }
 
