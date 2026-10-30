@@ -2,7 +2,18 @@ CC := gcc
 CFLAGS := -std=c11 -Wall -Wextra -Wpedantic -Werror -g
 CPPFLAGS := -Isrc
 
-SRC := src/main.c src/command_input.c src/parser.c src/builtins.c
+SRC := src/main.c \
+       src/command_input.c \
+       src/parser.c \
+       src/builtins.c \
+       src/process_exec.c \
+       src/redirection.c \
+       src/pipes.c \
+       src/environment.c \
+       src/history.c \
+       src/signals.c \
+       src/errors.c
+
 OBJ := $(SRC:.c=.o)
 TARGET := simple-shell
 TEST_TARGET := tests/test_parser
