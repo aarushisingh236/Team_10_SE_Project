@@ -135,6 +135,12 @@ int main(void)
             continue;
         }
 
+        if (rc == RESOLVE_NOT_EXECUTABLE) {
+            print_error_command_not_executable(
+                command.argv[0], "permission denied");
+            continue;
+        }
+
         if (rc != RESOLVE_OK) {
             fprintf(stderr,
                     "Error: Could not locate the program '%s' because of an internal error.\n",

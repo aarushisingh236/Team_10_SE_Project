@@ -10,6 +10,15 @@ void print_error_command_not_found(const char *command_name)
             command_name ? command_name : "");
 }
 
+void print_error_command_not_executable(
+    const char *command_name, const char *reason)
+{
+    fprintf(stderr,
+            "Error: The command '%s' cannot be executed: %s\n",
+            command_name ? command_name : "",
+            reason ? reason : "permission denied");
+}
+
 void print_error_input_file(const char *filename, const char *reason)
 {
     fprintf(stderr,

@@ -468,4 +468,59 @@ if [[ "$output" != *"TAB_INPUT_OK"* ]]; then
     exit 1
 fi
 
+# Test 34: A nonexistent command is identified and the shell recovers.
+missing_command="pes_command_that_does_not_exist_015"
+
+output="$(printf '%s\necho COMMAND_NOT_FOUND_RECOVERY_OK\nexit\n' \
+    "$missing_command" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"command '$missing_command' was not found"* ]]; then
+    echo "FAIL: nonexistent command was not clearly identified" >&2
+    exit 1
+fi
+
+if [[ "$output" != *"COMMAND_NOT_FOUND_RECOVERY_OK"* ]]; then
+    echo "FAIL: shell did not recover after command-not-found error" >&2
+    exit 1
+fi
+
+# Test 35: An existing file without execute permission is rejected.
+non_executable="$test_dir/non_executable_command"
+printf '#!/bin/sh\necho SHOULD_NOT_EXECUTE\n' > "$non_executable"
+chmod 644 "$non_executable"
+
+output="$(printf '%s\necho NON_EXECUTABLE_RECOVERY_OK\nexit\n' \
+    "$non_executable" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"cannot be executed"* ]]; then
+    echo "FAIL: non-executable file was not rejected clearly" >&2
+    exit 1
+fi
+
+if [[ "$output" == *"SHOULD_NOT_EXECUTE"* ]]; then
+    echo "FAIL: non-executable file was executed" >&2
+    exit 1
+fi
+
+if [[ "$output" != *"NON_EXECUTABLE_RECOVERY_OK"* ]]; then
+    echo "FAIL: shell did not recover after non-executable command" >&2
+    exit 1
+fi
+
+# Test 36: A nonexistent pipeline command is identified and the shell recovers.
+pipeline_missing="pes_pipeline_command_that_does_not_exist_015"
+
+output="$(printf 'echo pipeline | %s\necho PIPELINE_RECOVERY_OK\nexit\n' \
+    "$pipeline_missing" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"command '$pipeline_missing' was not found"* ]]; then
+    echo "FAIL: nonexistent pipeline command was not clearly identified" >&2
+    exit 1
+fi
+
+if [[ "$output" != *"PIPELINE_RECOVERY_OK"* ]]; then
+    echo "FAIL: shell did not recover after pipeline command-not-found error" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."

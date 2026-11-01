@@ -2,6 +2,7 @@
 
 #include "pipes.h"
 #include "process_exec.h"
+#include "errors.h"
 
 #include <errno.h>
 #include <signal.h>
@@ -108,9 +109,23 @@ void execute_pipeline(Command *command)
             }
         }
 
-        if (resolve_command(commands[i].argv[0], paths[i],
-                            sizeof(paths[i])) != RESOLVE_OK) {
-            fprintf(stderr, "Error: command not found in pipeline: %s\n",
+        ResolveResult rc = resolve_command(
+            commands[i].argv[0], paths[i], sizeof(paths[i]));
+
+        if (rc == RESOLVE_NOT_FOUND) {
+            print_error_command_not_found(commands[i].argv[0]);
+            return;
+        }
+
+        if (rc == RESOLVE_NOT_EXECUTABLE) {
+            print_error_command_not_executable(
+                commands[i].argv[0], "permission denied");
+            return;
+        }
+
+        if (rc != RESOLVE_OK) {
+            fprintf(stderr,
+                    "Error: Could not resolve pipeline command '%s'.\n",
                     commands[i].argv[0]);
             return;
         }
@@ -178,8 +193,23 @@ void execute_pipeline(Command *command)
             }
 
             execvp(paths[i], commands[i].argv);
-            perror("execvp");
-            _exit(127);
+
+            {
+                int exec_errno = errno;
+
+                if (exec_errno == ENOENT) {
+                    print_error_command_not_found(commands[i].argv[0]);
+                } else if (exec_errno == EACCES) {
+                    print_error_command_not_executable(
+                        commands[i].argv[0], strerror(exec_errno));
+                } else {
+                    fprintf(stderr,
+                            "Error: Could not execute pipeline command '%s': %s\n",
+                            commands[i].argv[0], strerror(exec_errno));
+                }
+
+                _exit(exec_errno == ENOENT ? 127 : 126);
+            }
         }
 
         started++;

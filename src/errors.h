@@ -9,6 +9,14 @@
 void print_error_command_not_found(const char *command_name);
 
 /**
+ * @brief Prints an error when a command exists but cannot be executed.
+ *
+ * @param command_name Name of the failed command.
+ */
+void print_error_command_not_executable(
+    const char *command_name, const char *reason);
+
+/**
  * @brief Prints an error message when an input redirection file cannot be opened.
  *
  * @param filename Target input file.
