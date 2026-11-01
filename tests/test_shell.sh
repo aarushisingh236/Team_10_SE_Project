@@ -523,4 +523,33 @@ if [[ "$output" != *"PIPELINE_RECOVERY_OK"* ]]; then
     exit 1
 fi
 
+
+
+# Test 37: Invalid directory reports the directory and failure reason.
+
+missing_directory="$test_dir/directory_that_does_not_exist"
+
+output="$(printf 'cd %s\nexit\n' "$missing_directory" |
+    "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"cannot access directory '$missing_directory'"* ]]; then
+    echo "FAIL: invalid directory was not clearly identified" >&2
+    exit 1
+fi
+
+if [[ "$output" != *"No such file or directory"* ]]; then
+    echo "FAIL: directory error did not explain the failure reason" >&2
+    exit 1
+fi
+
+# Test 38: Shell remains usable after an invalid directory error.
+
+output="$(printf 'cd %s\necho DIRECTORY_ERROR_RECOVERY_OK\nexit\n' \
+    "$missing_directory" | "$shell_bin" 2>&1)"
+
+if [[ "$output" != *"DIRECTORY_ERROR_RECOVERY_OK"* ]]; then
+    echo "FAIL: shell did not recover after an invalid directory" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."

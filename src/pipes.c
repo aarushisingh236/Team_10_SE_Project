@@ -136,14 +136,14 @@ void execute_pipeline(Command *command)
     sigaddset(&block_set, SIGCHLD);
 
     if (sigprocmask(SIG_BLOCK, &block_set, &old_set) < 0) {
-        perror("sigprocmask");
+        print_error_system("sigprocmask", strerror(errno));
         return;
     }
 
     /* Create pipes. */
     for (i = 0; i < command_count - 1; i++) {
         if (pipe(pipes[i]) < 0) {
-            perror("pipe");
+            print_error_system("pipe creation", strerror(errno));
 
             for (j = 0; j < i; j++) {
                 close(pipes[j][0]);
@@ -160,7 +160,7 @@ void execute_pipeline(Command *command)
         pids[i] = fork();
 
         if (pids[i] < 0) {
-            perror("fork");
+            print_error_system("fork", strerror(errno));
             break;
         }
 
@@ -177,13 +177,13 @@ void execute_pipeline(Command *command)
 
             if (i > 0 &&
                 dup2(pipes[i - 1][0], STDIN_FILENO) < 0) {
-                perror("dup2 stdin");
+                print_error_system("pipeline input redirection", strerror(errno));
                 _exit(1);
             }
 
             if (i < command_count - 1 &&
                 dup2(pipes[i][1], STDOUT_FILENO) < 0) {
-                perror("dup2 stdout");
+                print_error_system("pipeline output redirection", strerror(errno));
                 _exit(1);
             }
 
@@ -238,7 +238,7 @@ void execute_pipeline(Command *command)
         } while (result < 0 && errno == EINTR);
 
         if (result < 0 && errno != ECHILD) {
-            perror("waitpid");
+            print_error_system("waitpid", strerror(errno));
         }
     }
 
