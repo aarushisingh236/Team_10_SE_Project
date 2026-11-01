@@ -8,6 +8,7 @@
 typedef struct {
     int argc;
     char *argv[SHELL_MAX_ARGS + 1];
+    int quoted[SHELL_MAX_ARGS];
 } Command;
 
 /*

@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #define EXE_PATH_MAX 4096
 #define DEFAULT_PATH "/usr/bin:/bin"
@@ -21,6 +22,65 @@
 #ifndef SHELL_HISTORY_CAPACITY
 #define SHELL_HISTORY_CAPACITY 50
 #endif
+
+#define MAX_EXPANDED_ARG 4096
+
+static int expand_environment_variables(Command *command)
+{
+    static char expanded[SHELL_MAX_ARGS][MAX_EXPANDED_ARG];
+    int i;
+
+    for (i = 0; i < command->argc; i++) {
+        const char *src = command->argv[i];
+        size_t used = 0;
+
+        while (*src != '\0') {
+            if (*src == '$' &&
+                (isalpha((unsigned char)src[1]) || src[1] == '_')) {
+                char name[ MAX_EXPANDED_ARG ];
+                size_t name_len = 0;
+                const char *value;
+                size_t value_len;
+
+                src++;
+
+                while (isalnum((unsigned char)*src) || *src == '_') {
+                    if (name_len >= sizeof(name) - 1) {
+                        return -1;
+                    }
+                    name[name_len++] = *src++;
+                }
+
+                name[name_len] = '\0';
+                value = getenv(name);
+
+                if (value == NULL) {
+                    value = "";
+                }
+
+                value_len = strlen(value);
+
+                if (value_len >= MAX_EXPANDED_ARG - used) {
+                    return -1;
+                }
+
+                memcpy(expanded[i] + used, value, value_len);
+                used += value_len;
+            } else {
+                if (used >= MAX_EXPANDED_ARG - 1) {
+                    return -1;
+                }
+
+                expanded[i][used++] = *src++;
+            }
+        }
+
+        expanded[i][used] = '\0';
+        command->argv[i] = expanded[i];
+    }
+
+    return 0;
+}
 
 typedef enum {
     RESOLVE_OK,
@@ -36,7 +96,7 @@ static int has_pipe_operator(const Command *command)
     for (i = 0; i < command->argc; i++) {
         const char *token = command->argv[i];
 
-        if (token[0] == '|') {
+        if (!command->quoted[i] && token[0] == '|') {
             int j = 0;
 
             while (token[j] == '|') {
@@ -131,7 +191,8 @@ static int parse_input_redirection(
     *input_file = NULL;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], "<") == 0) {
+        if (!command->quoted[i] &&
+            strcmp(command->argv[i], "<") == 0) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: Use only one input redirection (<) in a command.\n");
@@ -148,10 +209,11 @@ static int parse_input_redirection(
 
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
-        strcmp(command->argv[redirect_index + 1], "<") == 0 ||
+        (!command->quoted[redirect_index + 1] &&
+        (strcmp(command->argv[redirect_index + 1], "<") == 0 ||
         strcmp(command->argv[redirect_index + 1], ">") == 0 ||
-        strcmp(command->argv[redirect_index + 1], ">>") == 0) {
-        fprintf(stderr,
+        strcmp(command->argv[redirect_index + 1], ">>") == 0))) {
+                fprintf(stderr,
                 "Error: input redirection requires a filename.\n");
         return -1;
     }
@@ -159,8 +221,9 @@ static int parse_input_redirection(
     *input_file = command->argv[redirect_index + 1];
 
     for (i = redirect_index; i + 2 < command->argc; i++) {
-        command->argv[i] = command->argv[i + 2];
-    }
+    command->argv[i] = command->argv[i + 2];
+    command->quoted[i] = command->quoted[i + 2];
+}
 
     command->argc -= 2;
     command->argv[command->argc] = NULL;
@@ -190,8 +253,9 @@ static int parse_output_redirection(
     *append_output = 0;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], ">") == 0 ||
-            strcmp(command->argv[i], ">>") == 0) {
+        if (!command->quoted[i] &&
+        (strcmp(command->argv[i], ">") == 0 ||
+        strcmp(command->argv[i], ">>") == 0)) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: Use only one output redirection (>, or >>) in a command.\n");
@@ -210,9 +274,10 @@ static int parse_output_redirection(
 
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
-        strcmp(command->argv[redirect_index + 1], ">") == 0 ||
+        (!command->quoted[redirect_index + 1] &&
+        (strcmp(command->argv[redirect_index + 1], ">") == 0 ||
         strcmp(command->argv[redirect_index + 1], ">>") == 0 ||
-        strcmp(command->argv[redirect_index + 1], "<") == 0) {
+        strcmp(command->argv[redirect_index + 1], "<") == 0))) {
         fprintf(stderr,
                 "Error: output redirection requires a filename.\n");
         return -1;
@@ -222,6 +287,7 @@ static int parse_output_redirection(
 
     for (i = redirect_index; i + 2 < command->argc; i++) {
         command->argv[i] = command->argv[i + 2];
+        command->quoted[i] = command->quoted[i + 2];
     }
 
     command->argc -= 2;
@@ -420,7 +486,10 @@ static void handle_sigchld(int signal_number)
 
     errno = saved_errno;
 }
-
+static void handle_sigint(int signal_number)
+{
+    (void)signal_number;
+}
 static void execute_external(
     const char *path,
     Command *command,
@@ -478,6 +547,14 @@ static void execute_external(
     }
 
     if (pid == 0) {
+        struct sigaction default_sa;
+        memset(&default_sa, 0, sizeof(default_sa));
+        default_sa.sa_handler = SIG_DFL;
+        sigemptyset(&default_sa.sa_mask);
+
+        if (sigaction(SIGINT, &default_sa, NULL) < 0) {
+            _exit(1);
+        }
         if (input_fd >= 0 &&
             dup2(input_fd, STDIN_FILENO) < 0) {
             fprintf(stderr,
@@ -541,6 +618,181 @@ static void execute_external(
     }
 }
 
+
+
+static void execute_pipeline(Command *command)
+{
+    Command commands[SHELL_MAX_ARGS] = {0};
+    char paths[SHELL_MAX_ARGS][EXE_PATH_MAX];
+    int pipes[SHELL_MAX_ARGS - 1][2];
+    pid_t pids[SHELL_MAX_ARGS];
+    int command_count = 0;
+    int i, j;
+    int started = 0;
+    sigset_t block_set, old_set;
+
+    /* Split input into individual commands. */
+    for (i = 0; i < command->argc; i++) {
+        if (!command->quoted[i] && command->argv[i][0] == '|') {
+            if (strcmp(command->argv[i], "|") != 0) {
+                fputs("Error: malformed command input (invalid pipe syntax).\n",
+                    stderr);
+                return;
+            }
+            if (commands[command_count].argc == 0 ||
+                command_count >= SHELL_MAX_ARGS - 1) {
+                fputs("Error: malformed command input (invalid pipe syntax).\n",
+                    stderr);
+                return;
+}
+
+            commands[command_count].argv[
+                commands[command_count].argc] = NULL;
+            command_count++;
+        } else {
+            if (commands[command_count].argc >= SHELL_MAX_ARGS) {
+                fputs("Error: too many arguments in pipeline.\n", stderr);
+                return;
+            }
+
+            int arg_index = commands[command_count].argc;
+
+            commands[command_count].argv[arg_index] = command->argv[i];
+            commands[command_count].quoted[arg_index] = command->quoted[i];
+            commands[command_count].argc++;
+        }
+    }
+
+    if (commands[command_count].argc == 0) {
+        fputs("Error: malformed command input (invalid pipe syntax).\n",
+              stderr);
+        return;
+    }
+
+    commands[command_count].argv[
+        commands[command_count].argc] = NULL;
+    command_count++;
+
+    /* Resolve and validate every command. */
+    for (i = 0; i < command_count; i++) {
+        for (j = 0; j < commands[i].argc; j++) {
+            if (!commands[i].quoted[j] &&
+                (strcmp(commands[i].argv[j], "<") == 0 ||
+                strcmp(commands[i].argv[j], ">") == 0 ||
+                strcmp(commands[i].argv[j], ">>") == 0)) {
+                fputs("Error: malformed command input (invalid pipe syntax).\n",
+                      stderr);
+                return;
+            }
+        }
+
+        if (resolve_command(commands[i].argv[0], paths[i],
+                            sizeof(paths[i])) != RESOLVE_OK) {
+            fprintf(stderr, "Error: command not found in pipeline: %s\n",
+                    commands[i].argv[0]);
+            return;
+        }
+    }
+
+    /* Block SIGCHLD while managing pipeline children. */
+    sigemptyset(&block_set);
+    sigaddset(&block_set, SIGCHLD);
+
+    if (sigprocmask(SIG_BLOCK, &block_set, &old_set) < 0) {
+        perror("sigprocmask");
+        return;
+    }
+
+    /* Create pipes. */
+    for (i = 0; i < command_count - 1; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
+
+            for (j = 0; j < i; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            sigprocmask(SIG_SETMASK, &old_set, NULL);
+            return;
+        }
+    }
+
+    /* Fork each command in the pipeline. */
+    for (i = 0; i < command_count; i++) {
+        pids[i] = fork();
+
+        if (pids[i] < 0) {
+            perror("fork");
+            break;
+        }
+
+        if (pids[i] == 0) {
+            sigprocmask(SIG_SETMASK, &old_set, NULL);
+            struct sigaction default_sa;
+            memset(&default_sa, 0, sizeof(default_sa));
+            default_sa.sa_handler = SIG_DFL;
+            sigemptyset(&default_sa.sa_mask);
+
+            if (sigaction(SIGINT, &default_sa, NULL) < 0) {
+                _exit(1);
+            }
+
+            if (i > 0 &&
+                dup2(pipes[i - 1][0], STDIN_FILENO) < 0) {
+                perror("dup2 stdin");
+                _exit(1);
+            }
+
+            if (i < command_count - 1 &&
+                dup2(pipes[i][1], STDOUT_FILENO) < 0) {
+                perror("dup2 stdout");
+                _exit(1);
+            }
+
+            for (j = 0; j < command_count - 1; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+
+            execvp(paths[i], commands[i].argv);
+            perror("execvp");
+            _exit(127);
+        }
+
+        started++;
+    }
+
+    /* Close parent copies of all pipe descriptors. */
+    for (i = 0; i < command_count - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    /* Stop already-started children if a fork failed. */
+    if (started < command_count) {
+        for (i = 0; i < started; i++) {
+            kill(pids[i], SIGTERM);
+        }
+    }
+
+    /* Wait for all pipeline processes. */
+    for (i = 0; i < started; i++) {
+        int status;
+        pid_t result;
+
+        do {
+            result = waitpid(pids[i], &status, 0);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0 && errno != ECHILD) {
+            perror("waitpid");
+        }
+    }
+
+    sigprocmask(SIG_SETMASK, &old_set, NULL);
+}
+
 int main(void)
 {
     char line[SHELL_MAX_LINE];
@@ -551,6 +803,7 @@ int main(void)
     int history_count = 0;
 
     struct sigaction sa;
+    struct sigaction sigint_sa;
 
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_sigchld;
@@ -563,10 +816,24 @@ int main(void)
                 strerror(errno));
         return 1;
     }
+    memset(&sigint_sa, 0, sizeof(sigint_sa));
+    sigint_sa.sa_handler = handle_sigint;
+    sigemptyset(&sigint_sa.sa_mask);
+
+    if (sigaction(SIGINT, &sigint_sa, NULL) < 0) {
+        fprintf(stderr,
+                "Error: Could not configure SIGINT handling: %s\n",
+                strerror(errno));
+        return 1;
+    }
 
     for (;;) {
         InputResult result = read_command_line(line, sizeof(line));
-
+        if (result == INPUT_INTERRUPTED) {
+             putchar('\n');
+             fflush(stdout);
+            continue;
+        }
         if (result == INPUT_EOF) {
             putchar('\n');
             break;
@@ -599,6 +866,11 @@ int main(void)
         if (command.argc == 0) {
             continue;
         }
+        if (expand_environment_variables(&command) != 0) {
+            fputs("Error: environment variable expansion failed.\n", stderr);
+            continue;
+        }
+
         if (strcmp(command.argv[0], "history") != 0) {
             if (history_count < SHELL_HISTORY_CAPACITY) {
                 strncpy(history[history_count], original_line, SHELL_MAX_LINE - 1);
@@ -619,9 +891,7 @@ int main(void)
         }
 
         if (has_pipe_operator(&command)) {
-            fputs(
-                "Error: malformed command input (unsupported pipe operator).\n",
-                stderr);
+            execute_pipeline(&command);
             continue;
         }
 
@@ -632,6 +902,7 @@ int main(void)
 
         /* Detect a trailing '&' to request background execution. */
         if (command.argc > 0 &&
+            !command.quoted[command.argc - 1] &&
             strcmp(command.argv[command.argc - 1], "&") == 0) {
             background = 1;
             command.argc--;
@@ -655,7 +926,6 @@ int main(void)
         if (command.argc == 0) {
             continue;
         }
-
  if (strcmp(command.argv[0], "exit") == 0 ||
     strcmp(command.argv[0], "echo") == 0 ||
     strcmp(command.argv[0], "pwd") == 0 ||

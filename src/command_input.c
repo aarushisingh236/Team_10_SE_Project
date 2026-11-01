@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 InputResult read_command_line(char *buffer, size_t capacity)
 {
@@ -23,7 +24,10 @@ InputResult read_command_line(char *buffer, size_t capacity)
             too_long = 1;
         }
     }
-
+    if (ch == EOF && ferror(stdin) && errno == EINTR) {
+        clearerr(stdin);
+        return INPUT_INTERRUPTED;
+    }
     if (ch == EOF && length == 0 && !too_long) {
         return INPUT_EOF;
     }
