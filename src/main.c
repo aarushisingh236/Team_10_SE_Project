@@ -40,6 +40,12 @@ int main(void)
             break;
         }
 
+        if (result == INPUT_INVALID) {
+            print_error_syntax(
+                "Error: input contains unsupported control characters.\n");
+            continue;
+        }
+
         strncpy(original_line, line, SHELL_MAX_LINE - 1);
         original_line[SHELL_MAX_LINE - 1] = '\0';
 
