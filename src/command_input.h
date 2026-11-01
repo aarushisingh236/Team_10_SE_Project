@@ -10,7 +10,8 @@ typedef enum {
     INPUT_EOF,
     INPUT_TOO_LONG,
     INPUT_ERROR,
-    INPUT_INTERRUPTED
+    INPUT_INTERRUPTED,
+    INPUT_INVALID
 } InputResult;
 
 /* Prints the prompt and reads one bounded line from stdin. */

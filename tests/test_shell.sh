@@ -396,4 +396,58 @@ if [[ "$output" != *"1  echo cmd_06"* ||
     exit 1
 fi
 
+
+# Test 31: Embedded NUL bytes are rejected and the shell recovers.
+output="$(
+    {
+        printf 'echo NUL_BAD\0COMMAND\n'
+        printf 'echo NUL_RECOVERY_OK\nexit\n'
+    } | "$shell_bin" 2>&1
+)"
+if [[ "$output" != *"unsupported control characters"* ]]; then
+    echo "FAIL: Embedded NUL was not rejected" >&2
+    exit 1
+fi
+if [[ "$output" == *"NUL_BAD"* ]]; then
+    echo "FAIL: Command containing embedded NUL was executed" >&2
+    exit 1
+fi
+if [[ "$output" != *"NUL_RECOVERY_OK"* ]]; then
+    echo "FAIL: Shell did not recover after embedded NUL" >&2
+    exit 1
+fi
+
+# Test 32: Other control characters are rejected and the shell recovers.
+output="$(
+    {
+        printf 'echo CONTROL_BAD\001COMMAND\n'
+        printf 'echo CONTROL_RECOVERY_OK\nexit\n'
+    } | "$shell_bin" 2>&1
+)"
+if [[ "$output" != *"unsupported control characters"* ]]; then
+    echo "FAIL: Control character was not rejected" >&2
+    exit 1
+fi
+if [[ "$output" == *"CONTROL_BAD"* ]]; then
+    echo "FAIL: Command containing control character was executed" >&2
+    exit 1
+fi
+if [[ "$output" != *"CONTROL_RECOVERY_OK"* ]]; then
+    echo "FAIL: Shell did not recover after control character" >&2
+    exit 1
+fi
+
+
+# Test 33: Tab characters are permitted in input.
+output="$(
+    {
+        printf 'echo TAB_INPUT_OK\t\n'
+        printf 'exit\n'
+    } | "$shell_bin" 2>&1
+)"
+if [[ "$output" != *"TAB_INPUT_OK"* ]]; then
+    echo "FAIL: Tab character was incorrectly rejected" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."
