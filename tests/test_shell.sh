@@ -346,4 +346,54 @@ if [[ "$output" != *"malformed command input"* ||
     exit 1
 fi
 
+# Test 28: History built-in lists entered commands in order (TC-HIST-02).
+output="$(printf 'echo first\necho second\necho third\nhistory\nexit\n' | "$shell_bin" 2>&1)"
+if [[ "$output" != *"1  echo first"* ||
+      "$output" != *"2  echo second"* ||
+      "$output" != *"3  echo third"* ]]; then
+    echo "FAIL: history did not list previous commands in order" >&2
+    exit 1
+fi
+
+# Test 29: Blank lines are excluded from history (SH-F-028).
+output="$(printf 'echo cmd1\n\n   \necho cmd2\nhistory\nexit\n' | "$shell_bin" 2>&1)"
+if [[ "$output" != *"1  echo cmd1"* ||
+      "$output" != *"2  echo cmd2"* ||
+      "$output" == *"3  "* ]]; then
+    echo "FAIL: blank lines were not excluded from history" >&2
+    exit 1
+fi
+
+# Test 30: History maintains a bounded capacity of the most recent commands (TC-HIST-01, SH-F-027).
+history_input=""
+for i in $(seq 1 55); do
+    num=$(printf "%02d" "$i")
+    history_input+="echo cmd_$num"$'\n'
+done
+history_input+="history"$'\n'
+history_input+="exit"$'\n'
+
+output="$(printf '%s' "$history_input" | "$shell_bin" 2>&1)"
+
+# Check that oldest commands (cmd_01 to cmd_05) were purged
+if [[ "$output" == *"echo cmd_01"* ||
+      "$output" == *"echo cmd_05"* ]]; then
+    echo "FAIL: oldest commands were not dropped when history limit was reached" >&2
+    exit 1
+fi
+
+# Check that the 50 most recent commands (cmd_06 to cmd_55) are present in order
+if [[ "$output" != *"echo cmd_06"* ||
+      "$output" != *"echo cmd_55"* ]]; then
+    echo "FAIL: recent commands were missing from bounded history" >&2
+    exit 1
+fi
+
+# Check that entry numbers run from 1 to 50
+if [[ "$output" != *"1  echo cmd_06"* ||
+      "$output" != *"50  echo cmd_55"* ]]; then
+    echo "FAIL: bounded history sequence numbering was incorrect" >&2
+    exit 1
+fi
+
 echo "All shell smoke tests passed."
