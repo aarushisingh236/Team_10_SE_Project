@@ -17,6 +17,7 @@ SRC := src/main.c \
 OBJ := $(SRC:.c=.o)
 TARGET := simple-shell
 TEST_TARGET := tests/test_parser
+HISTORY_TEST_TARGET := tests/test_history
 
 .PHONY: all clean test
 
@@ -31,9 +32,13 @@ src/%.o: src/%.c
 $(TEST_TARGET): tests/test_parser.c src/parser.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@
 
-test: $(TARGET) $(TEST_TARGET)
+$(HISTORY_TEST_TARGET): tests/test_history.c src/history.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@
+
+test: $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET)
 	./$(TEST_TARGET)
+	./$(HISTORY_TEST_TARGET)
 	/bin/bash tests/test_shell.sh ./$(TARGET)
 
 clean:
-	rm -f $(OBJ) $(TARGET) $(TEST_TARGET)
+	rm -f $(OBJ) $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET)
