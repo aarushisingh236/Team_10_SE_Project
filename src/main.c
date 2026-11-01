@@ -29,6 +29,12 @@ int main(void)
     for (;;) {
         InputResult result = read_command_line(line, sizeof(line));
 
+        if (result == INPUT_INTERRUPTED) {
+            putchar('\n');
+            fflush(stdout);
+            continue;
+        }
+
         if (result == INPUT_EOF) {
             putchar('\n');
             break;
@@ -59,13 +65,18 @@ int main(void)
             continue;
         }
 
+        if (environment_expand_variables(&command) != 0) {
+            print_error_syntax(
+                "Error: environment variable expansion failed.\n");
+            continue;
+        }
+
         if (strcmp(command.argv[0], "history") != 0) {
             history_add(original_line);
         }
 
         if (has_pipe_operator(&command)) {
-            print_error_syntax(
-                "Error: malformed command input (unsupported pipe operator).\n");
+            execute_pipeline(&command);
             continue;
         }
 
@@ -76,6 +87,7 @@ int main(void)
 
         /* Detect a trailing '&' to request background execution. */
         if (command.argc > 0 &&
+            !command.quoted[command.argc - 1] &&
             strcmp(command.argv[command.argc - 1], "&") == 0) {
             background = 1;
             command.argc--;

@@ -32,9 +32,15 @@ void handle_sigchld(int signal_number)
     errno = saved_errno;
 }
 
+void handle_sigint(int signal_number)
+{
+    (void)signal_number;
+}
+
 int setup_signal_handlers(void)
 {
     struct sigaction sa;
+    struct sigaction sigint_sa;
 
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_sigchld;
@@ -44,6 +50,17 @@ int setup_signal_handlers(void)
     if (sigaction(SIGCHLD, &sa, NULL) < 0) {
         fprintf(stderr,
                 "Error: Could not configure child process cleanup: %s\n",
+                strerror(errno));
+        return -1;
+    }
+
+    memset(&sigint_sa, 0, sizeof(sigint_sa));
+    sigint_sa.sa_handler = handle_sigint;
+    sigemptyset(&sigint_sa.sa_mask);
+
+    if (sigaction(SIGINT, &sigint_sa, NULL) < 0) {
+        fprintf(stderr,
+                "Error: Could not configure SIGINT handling: %s\n",
                 strerror(errno));
         return -1;
     }

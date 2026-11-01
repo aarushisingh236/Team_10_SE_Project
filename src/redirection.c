@@ -14,7 +14,8 @@ int parse_input_redirection(
     *input_file = NULL;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], "<") == 0) {
+        if (!command->quoted[i] &&
+            strcmp(command->argv[i], "<") == 0) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: Use only one input redirection (<) in a command.\n");
@@ -31,9 +32,10 @@ int parse_input_redirection(
 
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
-        strcmp(command->argv[redirect_index + 1], "<") == 0 ||
+        (!command->quoted[redirect_index + 1] &&
+        (strcmp(command->argv[redirect_index + 1], "<") == 0 ||
         strcmp(command->argv[redirect_index + 1], ">") == 0 ||
-        strcmp(command->argv[redirect_index + 1], ">>") == 0) {
+        strcmp(command->argv[redirect_index + 1], ">>") == 0))) {
         fprintf(stderr,
                 "Error: input redirection requires a filename.\n");
         return -1;
@@ -43,6 +45,7 @@ int parse_input_redirection(
 
     for (i = redirect_index; i + 2 < command->argc; i++) {
         command->argv[i] = command->argv[i + 2];
+        command->quoted[i] = command->quoted[i + 2];
     }
 
     command->argc -= 2;
@@ -69,8 +72,9 @@ int parse_output_redirection(
     *append_output = 0;
 
     for (i = 0; i < command->argc; i++) {
-        if (strcmp(command->argv[i], ">") == 0 ||
-            strcmp(command->argv[i], ">>") == 0) {
+        if (!command->quoted[i] &&
+            (strcmp(command->argv[i], ">") == 0 ||
+             strcmp(command->argv[i], ">>") == 0)) {
             if (redirect_index != -1) {
                 fprintf(stderr,
                         "Error: Use only one output redirection (>, or >>) in a command.\n");
@@ -89,9 +93,10 @@ int parse_output_redirection(
 
     if (redirect_index + 1 >= command->argc ||
         command->argv[redirect_index + 1][0] == '\0' ||
-        strcmp(command->argv[redirect_index + 1], ">") == 0 ||
+        (!command->quoted[redirect_index + 1] &&
+        (strcmp(command->argv[redirect_index + 1], ">") == 0 ||
         strcmp(command->argv[redirect_index + 1], ">>") == 0 ||
-        strcmp(command->argv[redirect_index + 1], "<") == 0) {
+        strcmp(command->argv[redirect_index + 1], "<") == 0))) {
         fprintf(stderr,
                 "Error: output redirection requires a filename.\n");
         return -1;
@@ -101,6 +106,7 @@ int parse_output_redirection(
 
     for (i = redirect_index; i + 2 < command->argc; i++) {
         command->argv[i] = command->argv[i + 2];
+        command->quoted[i] = command->quoted[i + 2];
     }
 
     command->argc -= 2;

@@ -272,6 +272,15 @@ void execute_external(
     }
 
     if (pid == 0) {
+        struct sigaction default_sa;
+        memset(&default_sa, 0, sizeof(default_sa));
+        default_sa.sa_handler = SIG_DFL;
+        sigemptyset(&default_sa.sa_mask);
+
+        if (sigaction(SIGINT, &default_sa, NULL) < 0) {
+            _exit(1);
+        }
+
         if (input_fd >= 0 &&
             dup2(input_fd, STDIN_FILENO) < 0) {
             fprintf(stderr,
