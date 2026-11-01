@@ -25,8 +25,26 @@ if [[ "$output" != *"hello world"* ]]; then
 fi
 
 
-# Test 3: Blank input is handled safely.
-output="$(printf '\nexit\n' | "$shell_bin" 2>&1)"
+# Test 3: Empty and whitespace-only input are ignored safely.
+output="$(
+    {
+        printf '\n'
+        printf '   \n'
+        printf '\t\n'
+        printf 'echo BLANK_RECOVERY_OK\n'
+        printf 'exit\n'
+    } | "$shell_bin" 2>&1
+)"
+
+if [[ "$output" == *"malformed command input"* ]]; then
+    echo "FAIL: Blank input produced an error" >&2
+    exit 1
+fi
+
+if [[ "$output" != *"BLANK_RECOVERY_OK"* ]]; then
+    echo "FAIL: Shell did not recover after blank input" >&2
+    exit 1
+fi
 
 # Test 4: Unmatched quotes produce an error and the shell continues.
 output="$(printf 'echo "unclosed\nexit\n' | "$shell_bin" 2>&1)"
