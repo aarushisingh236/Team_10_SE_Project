@@ -29,13 +29,27 @@ The project follows the submitted SRS and SAD:
 .
 ├── .github/workflows/ci.yml
 ├── src/
-│   ├── main.c
-│   ├── command_input.c
+│   ├── main.c              # Shell REPL driver & coordinator
+│   ├── command_input.c     # CIM: Command Input Module
 │   ├── command_input.h
-│   ├── parser.c
+│   ├── parser.c            # CP: Command Parser
 │   ├── parser.h
-│   ├── builtins.c
-│   └── builtins.h
+│   ├── builtins.c          # BCM: Built-in Command Module
+│   ├── builtins.h
+│   ├── process_exec.c      # PEM: Process Execution Module
+│   ├── process_exec.h
+│   ├── redirection.c       # IRM: I/O Redirection Module
+│   ├── redirection.h
+│   ├── pipes.c             # PMM: Pipe Management Module
+│   ├── pipes.h
+│   ├── environment.c       # EVM: Environment Variable Module
+│   ├── environment.h
+│   ├── history.c           # HM: History Module
+│   ├── history.h
+│   ├── signals.c           # SHM: Signal Handling Module
+│   ├── signals.h
+│   ├── errors.c            # EHM: Error Handling Module
+│   └── errors.h
 ├── tests/
 │   ├── test_parser.c
 │   └── test_shell.sh
