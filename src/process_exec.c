@@ -288,9 +288,7 @@ void execute_external(
     pid_t pid = fork();
 
     if (pid < 0) {
-        fprintf(stderr,
-                "Error: Could not start the command: %s\n",
-                strerror(errno));
+        print_error_system("fork", strerror(errno));
 
         if (input_fd >= 0) {
             close(input_fd);
@@ -378,8 +376,6 @@ void execute_external(
     } while (result < 0 && errno == EINTR);
 
     if (result < 0 && errno != ECHILD) {
-        fprintf(stderr,
-                "Error: Could not wait for the command to finish: %s\n",
-                strerror(errno));
+        print_error_system("waitpid", strerror(errno));
     }
 }

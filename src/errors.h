@@ -2,40 +2,38 @@
 #define ERRORS_H
 
 /**
- * @brief Prints a standard plain-English command-not-found error message.
- *
- * @param command_name Unrecognized command name.
+ * @brief Prints a command-not-found error.
  */
 void print_error_command_not_found(const char *command_name);
 
 /**
- * @brief Prints an error when a command exists but cannot be executed.
- *
- * @param command_name Name of the failed command.
+ * @brief Prints an error when a command cannot be executed.
  */
 void print_error_command_not_executable(
     const char *command_name, const char *reason);
 
 /**
- * @brief Prints an error message when an input redirection file cannot be opened.
- *
- * @param filename Target input file.
- * @param reason System error string.
+ * @brief Prints an input-file access error.
  */
 void print_error_input_file(const char *filename, const char *reason);
 
 /**
- * @brief Prints an error message when an output redirection file cannot be opened.
- *
- * @param filename Target output file.
- * @param reason System error string.
+ * @brief Prints an output-file access error.
  */
 void print_error_output_file(const char *filename, const char *reason);
 
 /**
- * @brief Prints a syntax error message to stderr.
- *
- * @param message Plain-English syntax description.
+ * @brief Prints a directory-access error.
+ */
+void print_error_directory(const char *directory, const char *reason);
+
+/**
+ * @brief Prints an error for a failed system operation.
+ */
+void print_error_system(const char *operation, const char *reason);
+
+/**
+ * @brief Prints a syntax error.
  */
 void print_error_syntax(const char *message);
 

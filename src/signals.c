@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "signals.h"
+#include "errors.h"
 #include <errno.h>
 #include <signal.h>
 #include <stdio.h>
@@ -48,9 +49,7 @@ int setup_signal_handlers(void)
     sigemptyset(&sa.sa_mask);
 
     if (sigaction(SIGCHLD, &sa, NULL) < 0) {
-        fprintf(stderr,
-                "Error: Could not configure child process cleanup: %s\n",
-                strerror(errno));
+        print_error_system("SIGCHLD configuration", strerror(errno));
         return -1;
     }
 
@@ -59,9 +58,7 @@ int setup_signal_handlers(void)
     sigemptyset(&sigint_sa.sa_mask);
 
     if (sigaction(SIGINT, &sigint_sa, NULL) < 0) {
-        fprintf(stderr,
-                "Error: Could not configure SIGINT handling: %s\n",
-                strerror(errno));
+        print_error_system("SIGINT configuration", strerror(errno));
         return -1;
     }
 

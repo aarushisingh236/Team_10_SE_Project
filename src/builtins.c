@@ -1,5 +1,6 @@
 
 #include "builtins.h"
+#include "errors.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,9 +101,7 @@ int handle_builtin(const Command *command,
         }
 
         if (chdir(directory) != 0) {
-            fprintf(stderr,
-                    "Error: Cannot change directory to '%s': %s\n",
-                    directory, strerror(errno));
+            print_error_directory(directory, strerror(errno));
         }
 
         return 1;
