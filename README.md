@@ -45,7 +45,7 @@ The project follows the submitted SRS and SAD:
 
 ## Build and run
 
-Requires GCC, Make, and a POSIX/Linux environment.
+Requires GCC, Make, and a POSIX-compliant Linux environment (verified on Ubuntu 22.04 LTS and Ubuntu 24.04 LTS via CI for TC-PORT-01).
 
 ```bash
 make
