@@ -1,6 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "history.h"
+
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,7 +17,18 @@ void history_init(void)
 
 void history_add(const char *line)
 {
-    if (line == NULL || line[0] == '\0') {
+    const unsigned char *cursor;
+
+    if (line == NULL) {
+        return;
+    }
+
+    cursor = (const unsigned char *)line;
+    while (*cursor != '\0' && isspace(*cursor)) {
+        cursor++;
+    }
+
+    if (*cursor == '\0') {
         return;
     }
 
