@@ -9,7 +9,8 @@
 typedef enum {
     RESOLVE_OK,
     RESOLVE_NOT_FOUND,
-    RESOLVE_ERROR
+    RESOLVE_ERROR,
+    RESOLVE_NOT_EXECUTABLE
 } ResolveResult;
 
 /**

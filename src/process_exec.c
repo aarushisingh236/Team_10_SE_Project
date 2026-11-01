@@ -17,11 +17,16 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-int is_executable_file(const char *path)
+static int is_regular_file(const char *path)
 {
     struct stat st;
 
-    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) {
+    return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+}
+
+int is_executable_file(const char *path)
+{
+    if (!is_regular_file(path)) {
         return 0;
     }
 
@@ -33,6 +38,8 @@ ResolveResult resolve_command(
 {
     const char *p;
     size_t cmd_len;
+    char candidate[EXE_PATH_MAX];
+    int found_non_executable = 0;
 
     if (cmd == NULL || cmd[0] == '\0' ||
         out == NULL || outsz == 0) {
@@ -46,8 +53,15 @@ ResolveResult resolve_command(
             return RESOLVE_ERROR;
         }
 
-        if (!is_executable_file(cmd)) {
+        if (!is_regular_file(cmd)) {
             return RESOLVE_NOT_FOUND;
+        }
+
+        if (access(cmd, X_OK) != 0) {
+            if (errno == EACCES) {
+                return RESOLVE_NOT_EXECUTABLE;
+            }
+            return RESOLVE_ERROR;
         }
 
         memcpy(out, cmd, cmd_len + 1);
@@ -55,6 +69,9 @@ ResolveResult resolve_command(
     }
 
     p = environment_get_path();
+    if (p == NULL) {
+        return RESOLVE_ERROR;
+    }
 
     for (;;) {
         const char *end = strchr(p, ':');
@@ -63,13 +80,26 @@ ResolveResult resolve_command(
         const char *dir = dir_len == 0 ? "." : p;
         size_t used_len = dir_len == 0 ? 1 : dir_len;
 
-        if (used_len + 1 + cmd_len + 1 <= outsz) {
-            memcpy(out, dir, used_len);
-            out[used_len] = '/';
-            memcpy(out + used_len + 1, cmd, cmd_len + 1);
+        if (used_len + 1 + cmd_len + 1 <= sizeof(candidate)) {
+            memcpy(candidate, dir, used_len);
+            candidate[used_len] = '/';
+            memcpy(candidate + used_len + 1, cmd, cmd_len + 1);
 
-            if (is_executable_file(out)) {
-                return RESOLVE_OK;
+            if (is_regular_file(candidate)) {
+                if (access(candidate, X_OK) == 0) {
+                    if (strlen(candidate) + 1 > outsz) {
+                        return RESOLVE_ERROR;
+                    }
+
+                    memcpy(out, candidate, strlen(candidate) + 1);
+                    return RESOLVE_OK;
+                }
+
+                if (errno == EACCES) {
+                    found_non_executable = 1;
+                } else if (errno != ENOENT && errno != ENOTDIR) {
+                    return RESOLVE_ERROR;
+                }
             }
         }
 
@@ -80,7 +110,8 @@ ResolveResult resolve_command(
         p = end + 1;
     }
 
-    return RESOLVE_NOT_FOUND;
+    return found_non_executable
+        ? RESOLVE_NOT_EXECUTABLE : RESOLVE_NOT_FOUND;
 }
 
 int execute_builtin(
@@ -311,9 +342,17 @@ void execute_external(
         {
             int exec_errno = errno;
 
-            fprintf(stderr,
-                    "Error: Could not run the program '%s': %s\n",
-                    path, strerror(exec_errno));
+            if (exec_errno == ENOENT) {
+                print_error_command_not_found(command->argv[0]);
+            } else if (exec_errno == EACCES) {
+                print_error_command_not_executable(
+                    command->argv[0], strerror(exec_errno));
+            } else {
+                fprintf(stderr,
+                        "Error: Could not execute command '%s': %s\n",
+                        command->argv[0], strerror(exec_errno));
+            }
+
             _exit(exec_errno == ENOENT ? 127 : 126);
         }
     }
