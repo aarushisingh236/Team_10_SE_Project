@@ -72,8 +72,28 @@ int main(void)
         }
 
         if (environment_expand_variables(&command) != 0) {
-            print_error_syntax(
-                "Error: environment variable expansion failed.\n");
+            switch (environment_get_expansion_error()) {
+                case ENV_EXPANSION_NAME_TOO_LONG:
+                    fprintf(stderr,
+                            "Error: environment variable name exceeds the size limit.\n");
+                    break;
+
+                case ENV_EXPANSION_VALUE_TOO_LONG:
+                    fprintf(stderr,
+                            "Error: expanded value for variable '%s' exceeds the argument size limit.\n",
+                            environment_get_failed_variable());
+                    break;
+
+                case ENV_EXPANSION_ARGUMENT_TOO_LONG:
+                    fprintf(stderr,
+                            "Error: expanded command argument exceeds the size limit.\n");
+                    break;
+
+                default:
+                    fprintf(stderr,
+                            "Error: environment variable expansion failed.\n");
+                    break;
+            }
             continue;
         }
 

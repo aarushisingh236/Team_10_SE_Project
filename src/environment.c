@@ -1,23 +1,59 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "environment.h"
+
+#include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
+static EnvironmentExpansionError last_error = ENV_EXPANSION_OK;
+static char failed_variable[MAX_EXPANDED_ARG];
+
+static int set_expansion_error(
+    EnvironmentExpansionError error,
+    const char *variable)
+{
+    last_error = error;
+
+    if (variable == NULL) {
+        failed_variable[0] = '\0';
+    } else {
+        snprintf(failed_variable, sizeof(failed_variable), "%s",
+                 variable);
+    }
+
+    return -1;
+}
+
 const char *environment_get_path(void)
 {
     const char *p = getenv("PATH");
+
     if (p == NULL) {
         p = DEFAULT_PATH;
     }
+
     return p;
+}
+
+EnvironmentExpansionError environment_get_expansion_error(void)
+{
+    return last_error;
+}
+
+const char *environment_get_failed_variable(void)
+{
+    return failed_variable;
 }
 
 int environment_expand_variables(Command *command)
 {
     static char expanded[SHELL_MAX_ARGS][MAX_EXPANDED_ARG];
     int i;
+
+    last_error = ENV_EXPANSION_OK;
+    failed_variable[0] = '\0';
 
     if (command == NULL) {
         return 0;
@@ -39,8 +75,10 @@ int environment_expand_variables(Command *command)
 
                 while (isalnum((unsigned char)*src) || *src == '_') {
                     if (name_len >= sizeof(name) - 1) {
-                        return -1;
+                        return set_expansion_error(
+                            ENV_EXPANSION_NAME_TOO_LONG, NULL);
                     }
+
                     name[name_len++] = *src++;
                 }
 
@@ -54,14 +92,16 @@ int environment_expand_variables(Command *command)
                 value_len = strlen(value);
 
                 if (value_len >= MAX_EXPANDED_ARG - used) {
-                    return -1;
+                    return set_expansion_error(
+                        ENV_EXPANSION_VALUE_TOO_LONG, name);
                 }
 
                 memcpy(expanded[i] + used, value, value_len);
                 used += value_len;
             } else {
                 if (used >= MAX_EXPANDED_ARG - 1) {
-                    return -1;
+                    return set_expansion_error(
+                        ENV_EXPANSION_ARGUMENT_TOO_LONG, NULL);
                 }
 
                 expanded[i][used++] = *src++;
