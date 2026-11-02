@@ -18,6 +18,7 @@ OBJ := $(SRC:.c=.o)
 TARGET := simple-shell
 TEST_TARGET := tests/test_parser
 HISTORY_TEST_TARGET := tests/test_history
+ENVIRONMENT_TEST_TARGET := tests/test_environment
 
 .PHONY: all clean test
 
@@ -35,11 +36,16 @@ $(TEST_TARGET): tests/test_parser.c src/parser.c
 $(HISTORY_TEST_TARGET): tests/test_history.c src/history.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@
 
-test: $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET)
+$(ENVIRONMENT_TEST_TARGET): tests/test_environment.c src/environment.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $^ -o $@
+
+test: $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET) $(ENVIRONMENT_TEST_TARGET)
 	./$(TEST_TARGET)
 	./$(HISTORY_TEST_TARGET)
+	./$(ENVIRONMENT_TEST_TARGET)
 	/bin/bash tests/test_shell.sh ./$(TARGET)
 	python3 tests/test_prompt_response.py ./$(TARGET)
+	python3 tests/test_environment_security.py ./$(TARGET)
 
 clean:
-	rm -f $(OBJ) $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET)
+	rm -f $(OBJ) $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET) $(ENVIRONMENT_TEST_TARGET)
