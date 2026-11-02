@@ -24,6 +24,27 @@ static int is_regular_file(const char *path)
     return stat(path, &st) == 0 && S_ISREG(st.st_mode);
 }
 
+/*
+ * Report the PID returned by fork() for a background child.
+ */
+static void report_background_pid(pid_t child_pid)
+{
+    if (child_pid <= 0) {
+        print_error_system("background process PID", "Invalid child PID");
+        return;
+    }
+
+    if (dprintf(
+            STDOUT_FILENO,
+            "[Background process started: PID %ld]\n",
+            (long)child_pid) < 0) {
+        int saved_errno = errno;
+        print_error_system(
+            "background process PID",
+            strerror(saved_errno));
+    }
+}
+
 int is_executable_file(const char *path)
 {
     if (!is_regular_file(path)) {
@@ -364,7 +385,7 @@ void execute_external(
     }
 
     if (background) {
-        printf("[Background process started: PID %ld]\n", (long)pid);
+        report_background_pid(pid);
         return;
     }
 
