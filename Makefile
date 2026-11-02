@@ -47,6 +47,7 @@ test: $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET) $(ENVIRONMENT_TEST_TARGET)
 	python3 tests/test_prompt_response.py ./$(TARGET)
 	python3 tests/test_environment_security.py ./$(TARGET)
 	python3 tests/test_reliability.py ./$(TARGET)
+	python3 tests/test_background_pid.py ./$(TARGET)
 
 clean:
 	rm -f $(OBJ) $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET) $(ENVIRONMENT_TEST_TARGET)
