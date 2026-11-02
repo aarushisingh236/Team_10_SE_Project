@@ -39,6 +39,7 @@ test: $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET)
 	./$(TEST_TARGET)
 	./$(HISTORY_TEST_TARGET)
 	/bin/bash tests/test_shell.sh ./$(TARGET)
+	python3 tests/test_prompt_response.py ./$(TARGET)
 
 clean:
 	rm -f $(OBJ) $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET)
