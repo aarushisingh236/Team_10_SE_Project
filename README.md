@@ -245,11 +245,6 @@ The following videos demonstrate the working Simple Shell application developed 
 | Sprint 1 | 1 minute | Initial shell implementation and core command execution |
 | Sprint 2 | 2 minutes | Extended functionality, process management, redirection, pipes, environment handling and security |
 
-### Video Links
-
-- [Sprint 1 Demonstration](videos/Sprint_1_Demo.mp4)
-- [Sprint 2 Demonstration](videos/Sprint_2_Demo.mp4)
-
 ---
 
 ## 10. Team Members
