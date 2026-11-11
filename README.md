@@ -1,92 +1,53 @@
 # Team 10 — Simple Shell
 ### A Modular Command-Line Interpreter in C
 
-A lightweight, modular command-line shell implemented in **C11** for POSIX-compliant Linux systems. The project aims to provide a simplified command-line environment supporting built-in commands, external command execution, command parsing and process management.
+A lightweight command-line shell developed in **C11** for POSIX-compliant Linux systems. It provides a command-line environment that allows users to execute built-in commands, run external programs and interact with the operating system.
 
-The application is developed following Software Engineering principles, with requirements and architecture documented in the Software Requirements Specification (SRS), Software Architecture Document (SAD), and Software Test Plan.
+The project follows a modular software architecture, with separate components for command input, parsing, execution, process management and other shell operations.
 
 ---
 
 ## 1. Project Overview
 
-Simple Shell is a command-line interpreter that accepts user commands, parses the input, identifies the requested operation and executes it.
+Simple Shell is a command-line interpreter that accepts commands from users, interprets the input and executes the requested operations.
 
-The system is designed with a modular architecture, separating command input, parsing, built-in command handling, process execution and other shell functionalities.
+It provides essential shell functionalities, including built-in command handling, external command execution, process management and command-line operations.
 
-**Project:** Team 10 — Simple Shell  
-**Language:** C11  
-**Platform:** POSIX-compliant Linux  
-**Compiler:** GCC  
-**Build System:** GNU Make
+The project was developed using an iterative, sprint-based approach, following Software Engineering principles and practices.
 
 ---
 
-## 2. Implemented Features
-
-### Sprint 1 — Core Shell Functionality
-
-Sprint 1 focused on establishing the shell's core functionality, including command input, parsing, built-in commands and external command execution.
-
-The following 14 functional requirements have been implemented:
-
-| Requirement ID | Feature | Description |
-|---|---|---|
-| SH-F-001 | Display Command Prompt | Displays the `shell> ` prompt and accepts user input. |
-| SH-F-002 | Validate Command-Line Length | Enforces bounded input and handles oversized commands safely. |
-| SH-F-003 | Tokenize Command Line | Splits command input into command names and arguments. |
-| SH-F-004 | Support Quoted Arguments | Handles single-quoted and double-quoted arguments. |
-| SH-F-005 | Ignore Blank Input | Ignores empty and whitespace-only commands. |
-| SH-F-006 | `cd` Built-in | Changes the current working directory. |
-| SH-F-007 | `pwd` Built-in | Displays the current working directory. |
-| SH-F-008 | `echo` Built-in | Displays the provided arguments. |
-| SH-F-009 | `help` Built-in | Displays available commands and usage information. |
-| SH-F-010 | `exit` Built-in | Terminates the shell. |
-| SH-F-012 | Search PATH | Locates external executables using the PATH environment variable. |
-| SH-F-013 | Execute External Commands | Creates child processes using `fork()` and executes programs using `execvp()`. |
-| SH-F-014 | Wait for Foreground Commands | Waits for foreground child processes to complete. |
-| SH-F-015 | Command-Not-Found Errors | Reports errors when a requested command cannot be found. |
-
-**Sprint 1 Status:** All 14 assigned functional requirements are marked Done in the GitHub Project.
-
----
-
-## 3. Technology Stack
+## 2. Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| C11 | Core implementation |
+| C11 | Core programming language |
 | GCC | Compilation |
-| POSIX APIs | Process creation and management |
+| POSIX APIs | Operating system and process interaction |
 | Linux | Target operating system |
 | GNU Make | Build automation |
-| Bash | Shell-based integration tests |
+| Bash | Integration testing |
 | Git & GitHub | Version control and collaboration |
-| GitHub Actions | Continuous Integration |
+| GitHub Actions | Continuous Integration (CI) |
 
 ---
 
-## 4. Project Architecture
+## 3. System Architecture
 
-The project follows a modular architecture in which individual components are responsible for specific shell operations.
+The shell follows a modular architecture, dividing its functionality into the following major components:
 
-The major modules include:
+- **Command Input and Parsing:** Accepts user input, validates commands and processes arguments.
+- **Command Handling:** Identifies and executes built-in shell commands.
+- **Process Execution:** Handles the execution of external programs and manages child processes.
+- **I/O Management:** Handles input/output redirection and communication between processes through pipes.
+- **Environment and History Management:** Manages environment-related operations and command history.
+- **Signal and Error Handling:** Handles process signals and provides appropriate error reporting.
 
-- **Command Input Module (CIM):** Handles user input and input validation.
-- **Command Parser (CP):** Tokenizes command lines and processes arguments.
-- **Built-in Command Module (BCM):** Implements shell-specific commands such as `cd`, `pwd`, `echo`, `help` and `exit`.
-- **Process Execution Module (PEM):** Handles external command execution and process management.
-- **I/O Redirection Module (IRM):** Handles input and output redirection.
-- **Pipe Management Module (PMM):** Manages communication between processes through pipes.
-- **Environment Variable Module (EVM):** Handles environment-related operations.
-- **History Module (HM):** Manages command history.
-- **Signal Handling Module (SHM):** Handles shell and process signals.
-- **Error Handling Module (EHM):** Provides error reporting and handling.
-
-The modular structure allows individual functionalities to be developed, tested and maintained independently.
+This separation of responsibilities makes the system easier to maintain, test and extend.
 
 ---
 
-## 5. Project Structure
+## 4. Project Structure
 
 ```text
 Team_10_SE_Project/
@@ -128,11 +89,9 @@ Team_10_SE_Project/
 
 ---
 
-## 6. Installation and Execution
+## 5. Installation and Execution
 
 ### Prerequisites
-
-Ensure that the following tools are installed:
 
 - GCC compiler
 - GNU Make
@@ -145,7 +104,7 @@ git clone https://github.com/aarushisingh236/Team_10_SE_Project.git
 cd Team_10_SE_Project
 ```
 
-### Compile the Project
+### Build the Project
 
 ```bash
 make
@@ -166,20 +125,20 @@ shell> pwd
 shell> echo Hello World
 Hello World
 
-shell> help
-[Displays available commands]
-
 shell> ls
 [Displays directory contents]
+
+shell> help
+[Displays available commands]
 
 shell> exit
 ```
 
 ---
 
-## 7. Testing
+## 6. Testing
 
-Testing is performed using automated unit tests and shell-based integration tests.
+The project uses automated unit and integration tests to verify functionality and ensure reliability.
 
 Run the test suite using:
 
@@ -187,51 +146,34 @@ Run the test suite using:
 make test
 ```
 
-The test suite covers functionality such as:
-
-- Command-line input and validation.
-- Tokenization and argument parsing.
-- Quoted arguments.
-- Blank input handling.
-- Built-in command execution.
-- External command execution.
-- Process management.
-- Error handling.
-
-GitHub Actions is configured to automate building and testing whenever changes are pushed or pull requests are submitted.
+GitHub Actions is used for Continuous Integration (CI), automating the build and test process whenever changes are pushed or pull requests are submitted.
 
 ---
 
-## 8. Development Workflow
+## 7. Development Workflow
 
-The project follows an issue-driven GitHub workflow.
+The project follows an issue-driven, sprint-based development approach using GitHub.
 
-1. Requirements are organized into GitHub Issues.
-2. Issues are assigned to individual team members.
-3. Each feature is developed in a dedicated Git branch.
-4. Changes are committed and pushed to GitHub.
-5. Pull requests are raised against the main branch.
-6. Code is reviewed and automated tests are executed.
-7. Approved pull requests are merged.
-8. Corresponding GitHub Issues and Project statuses are updated.
-
-The project uses sprint-based development to organize and track implementation progress.
+- Requirements and tasks are organized as GitHub Issues.
+- Tasks are assigned among team members.
+- Features are developed using separate Git branches.
+- Pull Requests are raised for code review and integration.
+- Automated tests are executed before merging changes.
+- Project progress is tracked through GitHub Projects.
 
 ---
 
-## 9. Project Documentation
+## 8. Project Documentation
 
-The following documents guide the development process:
+The development process is supported by the following documents:
 
-- **Software Requirements Specification (SRS):** Defines functional and non-functional requirements.
-- **Software Architecture Document (SAD):** Describes the system architecture and module responsibilities.
-- **Software Test Plan:** Defines testing strategies, test cases and acceptance criteria.
-
-These documents serve as the reference for implementation and validation.
+- **Software Requirements Specification (SRS):** Defines the functional and non-functional requirements.
+- **Software Architecture Document (SAD):** Describes the system architecture and design.
+- **Software Test Plan:** Defines the testing approach, test cases and expected results.
 
 ---
 
-## 10. Authors / Team Members
+## 9. Team Members
 
 **Team 10 — Simple Shell**
 
@@ -243,3 +185,9 @@ These documents serve as the reference for implementation and validation.
 | Adarsh Shivanand Madli | PES2UG24CS028 |
 
 Developed as part of the Software Engineering course project.
+
+---
+
+## Repository
+
+[Team 10 — Simple Shell on GitHub](https://github.com/aarushisingh236/Team_10_SE_Project)
