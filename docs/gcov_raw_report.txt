@@ -1,0 +1,78 @@
+File 'src/builtins.c'
+Lines executed:60.00% of 55
+Branches executed:88.00% of 50
+Taken at least once:64.00% of 50
+Calls executed:38.10% of 21
+Creating 'builtins.c.gcov'
+
+File 'src/command_input.c'
+Lines executed:84.62% of 39
+Branches executed:78.26% of 46
+Taken at least once:58.70% of 46
+Calls executed:100.00% of 5
+Creating 'command_input.c.gcov'
+
+File 'src/environment.c'
+Lines executed:89.36% of 47
+Branches executed:92.86% of 28
+Taken at least once:67.86% of 28
+Calls executed:60.00% of 5
+Creating 'environment.c.gcov'
+
+File 'src/errors.c'
+Lines executed:88.00% of 25
+Branches executed:88.89% of 18
+Taken at least once:44.44% of 18
+Calls executed:83.33% of 12
+Creating 'errors.c.gcov'
+
+File 'src/history.c'
+Lines executed:77.42% of 31
+Branches executed:85.71% of 14
+Taken at least once:57.14% of 14
+Calls executed:0.00% of 1
+Creating 'history.c.gcov'
+
+File 'src/main.c'
+Lines executed:74.12% of 85
+Branches executed:100.00% of 48
+Taken at least once:77.08% of 48
+Calls executed:72.73% of 33
+Creating 'main.c.gcov'
+
+File 'src/parser.c'
+Lines executed:92.31% of 39
+Branches executed:100.00% of 26
+Taken at least once:84.62% of 26
+No calls
+Creating 'parser.c.gcov'
+
+File 'src/pipes.c'
+Lines executed:60.17% of 118
+Branches executed:72.92% of 96
+Taken at least once:54.17% of 96
+Calls executed:29.41% of 51
+Creating 'pipes.c.gcov'
+
+File 'src/process_exec.c'
+Lines executed:46.60% of 191
+Branches executed:63.64% of 154
+Taken at least once:40.26% of 154
+Calls executed:29.67% of 91
+Creating 'process_exec.c.gcov'
+
+File 'src/redirection.c'
+Lines executed:82.86% of 70
+Branches executed:100.00% of 56
+Taken at least once:71.43% of 56
+Calls executed:42.86% of 7
+Creating 'redirection.c.gcov'
+
+File 'src/signals.c'
+Lines executed:74.07% of 27
+Branches executed:100.00% of 10
+Taken at least once:60.00% of 10
+Calls executed:55.56% of 9
+Creating 'signals.c.gcov'
+
+Lines executed:67.54% of 727

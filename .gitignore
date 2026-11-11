@@ -3,3 +3,17 @@ simple-shell
 tests/test_parser
 core
 core.*
+
+# Generated test executables
+tests/test_history
+tests/test_environment
+
+# GCC coverage files
+*.gcda
+*.gcno
+*.gcov
+
+# Temporary test output
+sprint2_input.txt
+sprint2_output.txt
+sprint2_noexec.sh
