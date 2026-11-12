@@ -1,0 +1,35 @@
+name: Documentation Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  documentation:
+    name: Validate Documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate documentation
+        run: python3 scripts/validate_documentation.py

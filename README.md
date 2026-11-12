@@ -66,7 +66,14 @@ Team_10_SE_Project/
 │
 ├── .github/
 │   └── workflows/
-│       └── ci.yml
+│       ├── ci.yml
+│       ├── static-analysis.yml
+│       ├── security.yml
+│       ├── coverage.yml
+│       ├── release.yml
+│       ├── dependency-validation.yml
+│       ├── documentation-quality.yml
+│       └── repository-quality.yml
 │
 ├── src/
 │   ├── main.c
