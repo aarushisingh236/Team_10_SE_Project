@@ -1,15 +1,23 @@
 # Code Coverage Report
 ## Team 10 — Simple Shell
 
+### Team Members
+- Aarushi Singh — PES2UG24CS015
+- Akshaya M — PES2UG24CS050
+- Akshay Anil Kumar — PES2UG24CS049
+- Adarsh Shivanand Madli — PES2UG24CS028
+
+---
+
 ### 1. Objective
 To measure source-line execution during the automated test run using GCC gcov.
 
 ### 2. Coverage Configuration
 - Compiler: GCC 13.3.0
-- Optimization: -O0
-- Instrumentation: --coverage
+- Optimization: `-O0`
+- Instrumentation: `--coverage`
 - Reporting tool: gcov
-- Command: gcov -b -c -o src src/*.c
+- Command: `gcov -b -c -o src src/*.c`
 
 ### 3. Overall Result
 
