@@ -55,3 +55,59 @@ jobs:
 
       - name: Run complete test suite
         run: make CC=${{ matrix.compiler }} test
+
+  static-analysis:
+    name: Cppcheck Static Analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Cppcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Display Cppcheck version
+        run: cppcheck --version
+
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      - name: Generate XML analysis report
+        continue-on-error: true
+        run: |
+          cppcheck \
+            --enable=warning,style,performance,portability \
+            --inline-suppr \
+            --suppress=missingIncludeSystem \
+            --error-exitcode=1 \
+            --xml \
+            --xml-version=2 \
+            -I src \
+            src \
+            2> reports/cppcheck-report.xml
+
+      - name: Generate readable analysis report
+        continue-on-error: true
+        run: |
+          cppcheck \
+            --enable=warning,style,performance,portability \
+            --inline-suppr \
+            --suppress=missingIncludeSystem \
+            --error-exitcode=1 \
+            --template=gcc \
+            -I src \
+            src \
+            > reports/cppcheck-report.txt 2>&1
+
+      - name: Upload Cppcheck reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cppcheck-static-analysis-report
+          path: reports/
+          if-no-files-found: error
+          retention-days: 14
