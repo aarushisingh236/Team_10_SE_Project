@@ -1,0 +1,44 @@
+name: Dependency Validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Build Environment
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate dependencies and project structure
+        run: python3 scripts/validate_dependencies.py
+
+      - name: Verify Makefile syntax
+        run: make -n all
+
+      - name: Verify release packaging interface
+        run: python3 scripts/package_release.py --help
+
+      - name: Verify coverage reporting interface
+        run: python3 scripts/generate_coverage_report.py --help
