@@ -1,6 +1,14 @@
 # Unit Testing Report
 ## Team 10 — Simple Shell
 
+### Team Members
+- Aarushi Singh — PES2UG24CS015
+- Akshaya M — PES2UG24CS050
+- Akshay Anil Kumar — PES2UG24CS049
+- Adarsh Shivanand Madli — PES2UG24CS028
+
+---
+
 ### 1. Objective
 To validate individual shell modules and their core functionality using automated unit tests.
 
@@ -9,8 +17,8 @@ To validate individual shell modules and their core functionality using automate
 - Compiler: GCC 13.3.0
 - Language: C11
 - Build system: GNU Make
-- Compiler flags: -Wall -Wextra -Wpedantic -Werror
-- Coverage instrumentation: GCC --coverage, -O0
+- Compiler flags: `-Wall -Wextra -Wpedantic -Werror`
+- Coverage instrumentation: GCC `--coverage`, `-O0`
 
 ### 3. Unit Test Execution
 
