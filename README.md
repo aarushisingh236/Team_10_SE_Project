@@ -108,12 +108,32 @@ Team_10_SE_Project/
 │   ├── test_reliability.py
 │   └── test_background_pid.py
 │
+├── docs/
+│   ├── Branch_Coverage_Report.md
+│   ├── Builtins_and_History_Guide.md
+│   ├── Code_Coverage_Report.md
+│   ├── Module_Architecture_Reference.md
+│   ├── POSIX_Portability_Guide.md
+│   ├── System_Validation_Report.md
+│   ├── Unit_Testing_Report.md
+│   └── gcov_raw_report.txt
+│
+├── scripts/
+│   ├── check_repository_quality.py
+│   ├── generate_coverage_report.py
+│   ├── package_release.py
+│   ├── validate_dependencies.py
+│   └── validate_documentation.py
+│
 ├── videos/
 │   ├── Sprint_1_Demo.mp4
 │   └── Sprint_2_Demo.mp4
 │
 ├── Makefile
-└── README.md
+├── README.md
+├── TEAM-10_SAD.pdf
+├── Team-10_SRS.pdf
+└── Team-10_STP.pdf
 ```
 
 ---
@@ -235,9 +255,19 @@ The development process follows an iterative approach, with functionality implem
 
 The development process is supported by the following documents:
 
-- **Software Requirements Specification (SRS):** Defines the functional and non-functional requirements of the system.
-- **Software Architecture and Design (SAD) Specification:** Describes the system architecture, components, design decisions and interfaces.
-- **Software Test Plan:** Defines the testing approach, test cases, validation procedures and expected results.
+- **[Software Requirements Specification (SRS)](Team-10_SRS.pdf):** Defines the functional and non-functional requirements of the system.
+- **[Software Architecture and Design (SAD) Specification](TEAM-10_SAD.pdf):** Describes the system architecture, components, design decisions and interfaces.
+- **[Software Test Plan (STP)](Team-10_STP.pdf):** Defines the testing approach, test cases, validation procedures and expected results.
+
+### Technical Guides & Reports
+
+- [Module Architecture Reference](docs/Module_Architecture_Reference.md)
+- [Built-in Commands and History Guide](docs/Builtins_and_History_Guide.md)
+- [POSIX Portability and CI Environment Guide](docs/POSIX_Portability_Guide.md)
+- [Unit Testing Report](docs/Unit_Testing_Report.md)
+- [System Validation Report](docs/System_Validation_Report.md)
+- [Code Coverage Report](docs/Code_Coverage_Report.md)
+- [Branch Coverage Report](docs/Branch_Coverage_Report.md)
 
 These documents establish the requirements, architectural design and testing strategy followed throughout the project.
 
