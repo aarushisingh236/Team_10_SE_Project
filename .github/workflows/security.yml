@@ -1,0 +1,93 @@
+name: Security Analysis
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sanitizer-tests:
+    name: Sanitizer Tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer:
+          - address
+          - undefined
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang make python3
+
+      - name: Display compiler version
+        run: clang --version
+
+      - name: Clean previous build artifacts
+        run: make clean
+
+      - name: Build and run tests with sanitizers
+        env:
+          SANITIZER: ${{ matrix.sanitizer }}
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          if [ "$SANITIZER" = "address" ]; then
+            FLAGS="-fsanitize=address -fno-omit-frame-pointer"
+          else
+            FLAGS="-fsanitize=undefined -fno-omit-frame-pointer"
+          fi
+
+          make CC=clang \
+            CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -Werror -g -O1 $FLAGS" \
+            test
+
+      - name: Clean generated build artifacts
+        if: always()
+        run: make clean
+
+  compiler-hardening:
+    name: Compiler Hardening Checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Build with security hardening flags
+        run: |
+          make clean
+          make CC=gcc \
+            CFLAGS="-std=c11 -Wall -Wextra -Wpedantic -Werror -g -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -Wformat -Wformat-security"
+
+      - name: Verify executable
+        run: |
+          test -x ./simple-shell
+          file ./simple-shell
+
+      - name: Upload hardened executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardened-shell-binary
+          path: simple-shell
+          retention-days: 14
