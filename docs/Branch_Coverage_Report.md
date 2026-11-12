@@ -1,14 +1,22 @@
 # Branch Coverage Report
 ## Team 10 — Simple Shell
 
+### Team Members
+- Aarushi Singh — PES2UG24CS015
+- Akshaya M — PES2UG24CS050
+- Akshay Anil Kumar — PES2UG24CS049
+- Adarsh Shivanand Madli — PES2UG24CS028
+
+---
+
 ### 1. Objective
 To measure conditional branch execution across the shell's source modules using GCC gcov.
 
 ### 2. Coverage Configuration
 - Compiler: GCC 13.3.0
-- Instrumentation: --coverage
+- Instrumentation: `--coverage`
 - Reporting tool: gcov
-- Command: gcov -b -c -o src src/*.c
+- Command: `gcov -b -c -o src src/*.c`
 
 ### 3. Overall Branch Metrics
 
