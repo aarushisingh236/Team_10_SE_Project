@@ -20,7 +20,7 @@ TEST_TARGET := tests/test_parser
 HISTORY_TEST_TARGET := tests/test_history
 ENVIRONMENT_TEST_TARGET := tests/test_environment
 
-.PHONY: all clean test
+.PHONY: all clean test coverage-test coverage-clean
 
 all: $(TARGET)
 
@@ -51,3 +51,14 @@ test: $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET) $(ENVIRONMENT_TEST_TARGET)
 
 clean:
 	rm -f $(OBJ) $(TARGET) $(TEST_TARGET) $(HISTORY_TEST_TARGET) $(ENVIRONMENT_TEST_TARGET)
+
+
+# Build and run the complete test suite with GCC coverage instrumentation.
+coverage-test:
+	$(MAKE) coverage-clean
+	$(MAKE) CC=gcc CFLAGS="$(CFLAGS) -O0 --coverage" test
+
+# Remove coverage data and generated gcov reports.
+coverage-clean: clean
+	find src tests -type f \( -name '*.gcda' -o -name '*.gcno' -o -name '*.gcov' \) -delete
+	rm -f ./*.gcov

@@ -1,0 +1,52 @@
+name: Code Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coverage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: GCC Coverage Report
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Verify GCC and gcov
+        run: |
+          gcc --version
+          gcov --version
+
+      - name: Build and run test suite with coverage
+        run: make coverage-test
+
+      - name: Generate coverage reports
+        run: |
+          python3 scripts/generate_coverage_report.py
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-reports
+          path: coverage-reports/
+          if-no-files-found: error
+          retention-days: 14

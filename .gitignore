@@ -17,3 +17,7 @@ tests/test_environment
 sprint2_input.txt
 sprint2_output.txt
 sprint2_noexec.sh
+
+# Python generated files
+__pycache__/
+*.py[cod]
