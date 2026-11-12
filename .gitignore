@@ -21,3 +21,6 @@ sprint2_noexec.sh
 # Python generated files
 __pycache__/
 *.py[cod]
+
+# Generated release packages
+dist/
