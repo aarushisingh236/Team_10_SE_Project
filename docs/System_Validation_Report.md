@@ -1,6 +1,14 @@
 # System Validation Report
 ## Team 10 — Simple Shell
 
+### Team Members
+- Aarushi Singh — PES2UG24CS015
+- Akshaya M — PES2UG24CS050
+- Akshay Anil Kumar — PES2UG24CS049
+- Adarsh Shivanand Madli — PES2UG24CS028
+
+---
+
 ### 1. Objective
 To validate the integrated shell application against its functional, reliability, performance and security expectations.
 
@@ -8,7 +16,7 @@ To validate the integrated shell application against its functional, reliability
 - Operating System: Ubuntu 24.04 (WSL)
 - Compiler: GCC 13.3.0
 - Build tool: GNU Make
-- Test command: make test
+- Test command: `make test`
 
 ### 3. System and Integration Test Results
 
